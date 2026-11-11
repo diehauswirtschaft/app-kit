@@ -1,0 +1,15 @@
+{
+  "name": "@diehauswirtschaft/app-kit",
+  "version": "0.1.0-alpha.1",
+  "description": "Shared dHW design tokens and thin Vue header",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "files": ["src/app_kit/assets/tokens.css", "src/app_kit/assets/header.css", "vue", "README.md", "LICENSE"],
+  "exports": {
+    "./tokens.css": "./src/app_kit/assets/tokens.css",
+    "./header.css": "./src/app_kit/assets/header.css",
+    "./vue/AppHeader.vue": "./vue/AppHeader.vue"
+  },
+  "peerDependencies": { "vue": "^3.5.0" },
+  "peerDependenciesMeta": { "vue": { "optional": true } }
+}

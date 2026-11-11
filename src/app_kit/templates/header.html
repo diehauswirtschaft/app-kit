@@ -1,0 +1,2 @@
+{# Identity is supplied by the local server-side session, never portal cookies. #}
+<header class="dhw-header"><strong>die HausWirtschaft · {{ app_title }}</strong><nav aria-label="App-Navigation"><a href="https://start.dhw.wien">dHW Start</a><a href="/">Übersicht</a>{% if user %}<span>{{ user.name }}</span><form action="/auth/logout" method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit">Hier abmelden</button></form>{% endif %}</nav></header>

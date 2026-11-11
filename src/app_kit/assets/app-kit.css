@@ -1,0 +1,37 @@
+/* Server-rendered UI layer; design_css() prepends shared tokens/header. */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-family: var(--dhw-font); background: var(--dhw-bg); color: var(--dhw-fg); }
+body { margin: 0; line-height: 1.6; }
+a { color: var(--dhw-link); text-underline-offset: .2em; }
+:focus-visible { outline: 3px solid var(--dhw-focus); outline-offset: 3px; }
+.dhw-skip { position: absolute; top: -6rem; left: 1rem; padding: .75rem; background: var(--dhw-bg); z-index: 10; }
+.dhw-skip:focus { top: 1rem; }
+.dhw-main { max-width: 72rem; margin: 2rem auto; padding: 0 1rem 4rem; }
+h1, h2, h3 { line-height: 1.25; overflow-wrap: anywhere; }
+h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); text-transform: uppercase; font-weight: 500; }
+h2 { margin-top: 2rem; font-weight: 500; }
+button, input, textarea, select { font: inherit; border-radius: 0; }
+button, .dhw-button { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .65rem 1rem; border: 1px solid var(--dhw-line); color: var(--dhw-fg); background: var(--dhw-bg); cursor: pointer; text-decoration: none; }
+button:hover, .dhw-button:hover { background: var(--dhw-soft); }
+.dhw-primary, .dhw-primary:hover { background: var(--dhw-amber); color: var(--dhw-carbon); border-color: var(--dhw-carbon); }
+button:disabled { opacity: .6; cursor: not-allowed; }
+label { display: block; margin: 1rem 0 .25rem; font-weight: 600; }
+input:not([type=checkbox]), textarea, select { width: 100%; min-height: 44px; padding: .7rem; color: var(--dhw-fg); background: var(--dhw-bg); border: 1px solid var(--dhw-line); }
+input[type=checkbox] { width: 1.25rem; height: 1.25rem; accent-color: var(--dhw-focus); }
+textarea { min-height: 18rem; resize: vertical; line-height: 1.5; }
+.dhw-muted { color: var(--dhw-muted); }
+.dhw-notice { border-left: 4px solid var(--dhw-focus); padding: .75rem 1rem; background: var(--dhw-soft); }
+.dhw-error { color: var(--dhw-danger); border: 1px solid currentColor; padding: 1rem; }
+.dhw-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; }
+.dhw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 2rem; }
+.dhw-list { list-style: none; padding: 0; }
+.dhw-list > li { padding: 1rem 0; border-bottom: 1px solid var(--dhw-line); }
+.dhw-document { overflow-wrap: anywhere; }
+.dhw-document pre { overflow-x: auto; }
+.dhw-document img { display: none; }
+.dhw-document blockquote { border-left: 3px solid var(--dhw-line); padding-left: 1rem; margin-left: 0; }
+.dhw-badge { border: 1px solid var(--dhw-line); padding: .1rem .4rem; font-size: .875rem; }
+fieldset { min-width: 0; border: 1px solid var(--dhw-line); margin: 1rem 0; padding: 1rem; }
+legend { padding: 0 .4rem; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+@media print { :root { color-scheme: light; --dhw-bg: #fff; --dhw-fg: #181a20; --dhw-line: #181a20; --dhw-muted: #545760; } .dhw-header, .dhw-actions, .dhw-skip { display: none; } .dhw-main { max-width: none; margin: 0; padding: 0; } a { color: inherit; } }

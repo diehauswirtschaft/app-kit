@@ -1,0 +1,9 @@
+.dhw-header { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 2rem; padding: 1rem max(1rem, calc((100vw - 72rem) / 2)); border-bottom: 1px solid var(--dhw-line); color: var(--dhw-fg); background: var(--dhw-bg); font-family: var(--dhw-font); }
+.dhw-header strong { font-size: 1.25rem; text-transform: uppercase; letter-spacing: .04em; }
+.dhw-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-left: auto; }
+.dhw-header form { margin: 0; }
+.dhw-header a { color: var(--dhw-link); text-underline-offset: .2em; }
+.dhw-header button { font: inherit; min-height: 44px; padding: .5rem .75rem; border-radius: 0; border: 1px solid var(--dhw-line); color: var(--dhw-fg); background: var(--dhw-bg); cursor: pointer; }
+.dhw-header button:disabled { opacity: .6; cursor: not-allowed; }
+.dhw-header :focus-visible { outline: 3px solid var(--dhw-focus); outline-offset: 3px; }
+@media print { .dhw-header { display: none; } }
