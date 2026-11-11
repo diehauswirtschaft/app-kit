@@ -4,6 +4,7 @@ All credentials are generated at runtime outside Git. No named data volumes or
 existing database are used. Cleanup removes only this process's container.
 """
 
+import hashlib
 import json
 import os
 import secrets
@@ -15,13 +16,20 @@ import time
 import uuid
 from pathlib import Path
 
-IMAGE = "docker.io/library/postgres:17-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac"
-
 
 def main():
     runtime = shutil.which("docker") or shutil.which("podman")
     if not runtime:
         raise SystemExit("Docker or Podman required for PostgreSQL acceptance")
+    recipe = Path(__file__).resolve().parent / "postgres"
+    digest = hashlib.sha256((recipe / "Dockerfile").read_bytes()).hexdigest()[:16]
+    image = "localhost/app-kit-test-postgres:" + digest
+    build = [runtime, "build", "--tag", image]
+    if Path(runtime).name == "podman":
+        build.extend(["--http-proxy=false", "--cap-drop=ALL", "--security-opt=no-new-privileges"])
+    result = subprocess.run([*build, str(recipe)], capture_output=True, timeout=180)
+    if result.returncode:
+        raise SystemExit("Hardened PostgreSQL recipe failed to build")
     name = "app-kit-test-" + uuid.uuid4().hex
     created = False
     with tempfile.TemporaryDirectory(prefix="app-kit-db-") as directory:
@@ -59,7 +67,7 @@ def main():
                     "POSTGRES_USER=pilot",
                     "-e",
                     "POSTGRES_DB=pilot",
-                    IMAGE,
+                    image,
                 ],
                 capture_output=True,
                 timeout=150,

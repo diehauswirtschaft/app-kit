@@ -50,6 +50,8 @@ The package deliberately does **not** force global HTML/form styles on Vue consu
 
 `uv sync --locked --python 3.13`; `uv run ruff check src tests`; `uv run pytest`.
 
+`uv run python scripts/test_postgres.py -q` builds the pinned, hardened PostgreSQL recipe under `scripts/postgres/`, runs the complete suite against a loopback-only ephemeral database and cleans up its own container. No named data volumes or pre-existing DB are used. The original upstream candidate is not accepted as a deployment image: its unused gosu binary and two vulnerable library packages required actual removal/upgrades, not advisory ignores.
+
 RSA/OIDC/refresh tests require real PostgreSQL and `PILOT_DATABASE_URL_FILE`, pointing to a **private runtime-generated** psycopg URL file. They create/drop only random isolated schemas. Without that setting they explicitly skip; asset/secret tests still run. CI must provide it. Never point acceptance at a live app database.
 
 Design source: `budgetprioritaeten` design commit `da1a59a6b589ba41ebc02f7027a092ab40a54098`; comparison with portal `services/bff/src/app.css`. These are design inputs, not a license grant for fonts or approval to alter the portal. The shared palette is a pilot implementation, not a claim that every derived web rule appears in the print styleguide.
