@@ -26,6 +26,7 @@ class Provider:
         self.access_changes = {}
         self.id_changes = {}
         self.nonce = None
+        self.omit_nonce = False
         self.refreshes = 0
         self.transport = httpx.MockTransport(self.handle)
 
@@ -51,15 +52,16 @@ class Provider:
                 **self.access_changes,
             }
         )
-        identity = self.token(
-            {
-                **base,
-                "nonce": self.nonce,
-                "name": "Synthetic identity",
-                "realm_access": {"roles": ["dhw-admin-role"]},
-                **self.id_changes,
-            }
-        )
+        id_claims = {
+            **base,
+            "nonce": self.nonce,
+            "name": "Synthetic identity",
+            "realm_access": {"roles": ["dhw-admin-role"]},
+            **self.id_changes,
+        }
+        if self.omit_nonce:
+            id_claims.pop("nonce", None)
+        identity = self.token(id_claims)
         return {
             "access_token": access,
             "id_token": identity,
@@ -260,6 +262,18 @@ async def test_concurrent_refresh_single_provider_rotation_and_key_rollover(oidc
         allowed_clients={"fixture-reader"},
     )
     assert accepted["sub"] == "service"
+
+
+async def test_refresh_optional_nonce_but_present_nonce_must_match(oidc):
+    auth, provider = oidc
+    cookie, _, _ = await sign_in(auth, provider)
+    provider.now[0] += 301
+    provider.omit_nonce = True
+    assert await auth.authenticate(request(cookie=cookie)) is not None
+    provider.now[0] += 301
+    provider.omit_nonce = False
+    provider.id_changes = {"nonce": "wrong"}
+    assert await auth.authenticate(request(cookie=cookie)) is None
 
 
 async def test_signature_algorithm_service_allowlist_and_audience(oidc):

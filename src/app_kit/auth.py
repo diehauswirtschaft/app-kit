@@ -150,7 +150,7 @@ class OIDC:
 
     async def bounded_json(self, client, method, url, **kwargs):
         # AP-01/ASI-023: fixed verified issuer endpoints; never redirects/proxies.
-        async with client.stream(method, url, **kwargs) as response:
+        async with asyncio.timeout(8), client.stream(method, url, **kwargs) as response:
             if response.status_code != 200:
                 raise AuthUnavailable("Identity provider unavailable")
             data = bytearray()
@@ -217,7 +217,15 @@ class OIDC:
             return result
 
     async def claims(
-        self, token, *, audience, access=False, nonce=None, access_token=None, allowed_clients=None
+        self,
+        token,
+        *,
+        audience,
+        access=False,
+        nonce=None,
+        access_token=None,
+        allowed_clients=None,
+        refresh=False,
     ):
         if not isinstance(token, str) or not 1 <= len(token) <= 32768:
             raise AuthError("Invalid identity token")
@@ -284,7 +292,9 @@ class OIDC:
                     data,
                     decoded.header,
                     params={
-                        "nonce": nonce,
+                        # Refresh ID tokens may omit nonce; a present nonce
+                        # must still match the original login (AP-01).
+                        "nonce": nonce if not refresh or "nonce" in data else None,
                         "client_id": self.settings.client_id,
                         "access_token": access_token,
                     },
@@ -490,8 +500,8 @@ class OIDC:
             )
             if row is None or min(row["expires"], row["absolute"]) <= now:
                 return None
-            payload = self.unseal(row["payload"])
             try:
+                payload = self.unseal(row["payload"])
                 # Bind encrypted content to the opaque-cookie hash and app.
                 # A database-only attacker cannot swap ciphertext between users.
                 if (
@@ -524,6 +534,7 @@ class OIDC:
                             audience=self.settings.client_id,
                             nonce=payload["nonce"],
                             access_token=tokens["access_token"],
+                            refresh=True,
                         )
                         if identity["sub"] != payload["sub"]:
                             raise AuthError("Subject changed")
