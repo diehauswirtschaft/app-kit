@@ -15,7 +15,7 @@ from joserfc.jwk import RSAKey
 from sqlalchemy import select
 from starlette.requests import Request
 
-from app_kit.auth import OIDC, AuthError, OIDCSettings, sessions, states
+from app_kit.auth import OIDC, AuthError, AuthUnavailable, OIDCSettings, sessions, states
 
 
 class Provider:
@@ -28,6 +28,7 @@ class Provider:
         self.nonce = None
         self.omit_nonce = False
         self.refreshes = 0
+        self.jwks_keys = None
         self.transport = httpx.MockTransport(self.handle)
 
     def token(self, claims):
@@ -87,7 +88,14 @@ class Provider:
                 },
             )
         if request.url.path.endswith("/keys"):
-            return httpx.Response(200, json={"keys": [self.key.as_dict(private=False)]})
+            return httpx.Response(
+                200,
+                json={
+                    "keys": self.jwks_keys
+                    if self.jwks_keys is not None
+                    else [self.key.as_dict(private=False)]
+                },
+            )
         if request.url.path.endswith("/token"):
             data = parse_qs(request.content.decode())
             if data["grant_type"] == ["refresh_token"]:
@@ -161,6 +169,66 @@ async def sign_in(auth, provider):
         params,
         binding,
     )
+
+
+async def test_mixed_public_jwks_uses_signature_key_not_encryption_key(oidc):
+    auth, provider = oidc
+    public = provider.key.as_dict(private=False)
+    provider.jwks_keys = [
+        {**public, "kid": "encryption-key", "use": "enc", "alg": "RSA-OAEP"},
+        {**public, "use": "sig", "alg": "RS256", "key_ops": ["verify"]},
+    ]
+    cookie, _, _ = await sign_in(auth, provider)
+    principal = await auth.authenticate(request(cookie=cookie))
+    assert principal.roles == frozenset({"dhw-member-role"})
+
+
+async def test_encryption_kid_cannot_verify_even_mathematically_valid_rs256_signature(oidc):
+    auth, provider = oidc
+    public = provider.key.as_dict(private=False)
+    provider.jwks_keys = [
+        {**public, "kid": "encryption-key", "use": "enc", "alg": "RSA-OAEP"},
+        public,
+    ]
+    claims = {
+        "iss": provider.issuer,
+        "sub": "synthetic-subject",
+        "iat": int(provider.now[0]),
+        "exp": int(provider.now[0]) + 60,
+        "aud": "fixture-web",
+        "azp": "fixture-web",
+        "typ": "Bearer",
+    }
+    token = jwt.encode({"alg": "RS256", "kid": "encryption-key"}, claims, provider.key)
+    with pytest.raises(AuthError):
+        await auth.claims(token, audience="fixture-web", access=True)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "only-encryption",
+        "duplicate-kid",
+        "private-material",
+        "malformed-entry",
+        "wrong-key-ops",
+        "unsupported-algorithm",
+    ],
+)
+async def test_jwks_rejects_unusable_or_ambiguous_signing_material(oidc, case):
+    auth, provider = oidc
+    public = provider.key.as_dict(private=False)
+    sets = {
+        "only-encryption": [{**public, "use": "enc", "alg": "RSA-OAEP"}],
+        "duplicate-kid": [public, public],
+        "private-material": [provider.key.as_dict(private=True)],
+        "malformed-entry": [None, public],
+        "wrong-key-ops": [{**public, "key_ops": ["encrypt"]}],
+        "unsupported-algorithm": [{**public, "alg": "PS256"}],
+    }
+    provider.jwks_keys = sets[case]
+    with pytest.raises(AuthUnavailable):
+        await auth.provider()
 
 
 async def test_code_flow_cookie_opaque_access_roles_encrypted_and_no_replay(oidc):

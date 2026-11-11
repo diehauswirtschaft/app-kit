@@ -197,22 +197,42 @@ class OIDC:
                         raise AuthUnavailable("Untrusted OIDC endpoint")
                 keys = await self.bounded_json(client, "GET", config["jwks_uri"])
                 raw_keys = keys.get("keys")
-                if not isinstance(raw_keys, list) or not 1 <= len(raw_keys) <= 16:
+                if (
+                    not isinstance(raw_keys, list)
+                    or not 1 <= len(raw_keys) <= 16
+                    or any(not isinstance(key, dict) for key in raw_keys)
+                ):
                     raise AuthUnavailable("Invalid signing keys")
                 kids = [key.get("kid") for key in raw_keys]
                 if (
-                    any(not isinstance(kid, str) or not kid for kid in kids)
+                    any(not isinstance(kid, str) or not 1 <= len(kid) <= 256 for kid in kids)
                     or len(kids) != len(set(kids))
                     or any(
-                        key.get("kty") != "RSA"
-                        or "d" in key
-                        or key.get("use", "sig") != "sig"
-                        or key.get("alg", "RS256") != "RS256"
+                        {"d", "p", "q", "dp", "dq", "qi", "oth", "k"}.intersection(key)
                         for key in raw_keys
                     )
                 ):
                     raise AuthUnavailable("Invalid signing keys")
-                result = (config, KeySet.import_key_set(keys))
+                # AP-01 / RFC 7517: providers legitimately publish encryption
+                # and signing keys together. Import only public RS256 verifier
+                # candidates; an encryption kid must never select a JWT key.
+                # jwt.decode still independently pins algorithms=['RS256'].
+                signing_keys = [
+                    key
+                    for key in raw_keys
+                    if (
+                        key.get("kty") == "RSA"
+                        and key.get("use", "sig") == "sig"
+                        and key.get("alg", "RS256") == "RS256"
+                        and ("key_ops" not in key or key["key_ops"] == ["verify"])
+                    )
+                ]
+                if not signing_keys:
+                    raise AuthUnavailable("No supported signing keys")
+                try:
+                    result = (config, KeySet.import_key_set({"keys": signing_keys}))
+                except Exception:
+                    raise AuthUnavailable("Invalid signing keys") from None
             self._cache, self._cache_until = result, self.clock() + 300
             return result
 
