@@ -26,7 +26,7 @@ export function installHeaderInteractions(root) {
     for (const menu of root.querySelectorAll('[data-dhw-profile][open]')) {
       if (event.type === 'keydown' && event.key === 'Escape') {
         menu.open = false; menu.querySelector('summary')?.focus()
-      } else if (event.type === 'click' && !menu.contains(event.target)) menu.open = false
+      } else if (event.type === 'click' && (!menu.contains(event.target) || (!event.defaultPrevented && event.target.closest?.('a[href]')))) menu.open = false
     }
   }
   document.addEventListener('click', close)

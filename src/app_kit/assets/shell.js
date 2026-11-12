@@ -22,6 +22,12 @@ for (const form of document.querySelectorAll('form[data-dhw-dirty]')) {
   form.addEventListener('input', () => { dirty = true })
   form.addEventListener('submit', () => { dirty = false })
 }
+document.addEventListener('submit', event => {
+  if (!dirty || event.target.matches('form[data-dhw-dirty]')) return
+  if (!window.confirm('Ungespeicherte Änderungen verwerfen und diese Seite verlassen?')) {
+    event.preventDefault(); event.stopImmediatePropagation()
+  } else dirty = false
+}, true)
 window.addEventListener('beforeunload', event => {
   if (dirty) { event.preventDefault(); event.returnValue = '' }
 })

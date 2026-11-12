@@ -21,7 +21,7 @@
 .dhw-profile { position: relative; }
 .dhw-profile > summary { box-sizing: border-box; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; border: 1px solid currentColor; border-radius: 50%; color: var(--dhw-navy); background: var(--dhw-aqua); cursor: pointer; font-size: .9rem; font-weight: 700; list-style: none; }
 .dhw-profile > summary::-webkit-details-marker { display: none; }
-.dhw-profile-panel { box-sizing: border-box; position: absolute; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / 16%); }
+.dhw-profile-panel { box-sizing: border-box; position: absolute; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: var(--dhw-menu-shadow); }
 .dhw-header-user { display: block; margin: 0 0 .75rem; overflow-wrap: anywhere; font-weight: 700; }
 .dhw-profile-panel a { display: flex; align-items: center; min-height: 44px; }
 .dhw-header button:not(.dhw-back) { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .5rem .9rem; border: 1px solid var(--dhw-action-bg); border-radius: var(--dhw-radius); font: inherit; font-weight: 700; color: var(--dhw-action-fg); background: var(--dhw-action-bg); cursor: pointer; }

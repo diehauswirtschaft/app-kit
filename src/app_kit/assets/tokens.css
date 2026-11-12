@@ -11,6 +11,7 @@
   --dhw-focus: var(--dhw-azure); --dhw-danger: #8b2533; --dhw-link: var(--dhw-azure);
   --dhw-font: system-ui, -apple-system, "Segoe UI", sans-serif;
   --dhw-radius: .75rem;
+  --dhw-menu-shadow: 0 .5rem 1.5rem rgb(21 51 98 / 16%);
   --dhw-action-bg: var(--dhw-navy); --dhw-action-fg: var(--dhw-white);
 }
 @media (prefers-color-scheme: dark) {
