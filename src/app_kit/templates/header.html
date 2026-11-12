@@ -1,25 +1,31 @@
-{# Identity comes only from this app's server session, never portal cookies.
-   Brand stays non-interactive like the previous kit: no new reload target that
-   could discard an active recording or an unsaved draft (AP-02). #}
+{# AP-02 / ASI-006: own server identity; the entry hint is cosmetic only.
+   No brand-link reload can discard recording/editor state. No external photos
+   are requested without a separately reviewed, verified profile-image path. #}
 <header class="dhw-header">
   <div class="dhw-header-inner">
-    <div class="dhw-brand">
-      <picture class="dhw-brand-logo">
-        <source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/logo-dark.svg">
-        <img src="/assets/app-kit/logo.svg" alt="die HausWirtschaft" width="1538" height="185">
-      </picture>
-      <span class="dhw-app-name">{{ app_title }}</span>
+    <div class="dhw-brand-group">
+      <a class="dhw-back" data-dhw-portal-back hidden href="https://start.dhw.wien/" aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>
+      <div class="dhw-brand">
+        <picture class="dhw-brand-logo">
+          <source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/logo-dark.svg">
+          <img src="/assets/app-kit/logo.svg" alt="die HausWirtschaft" width="1538" height="185">
+        </picture>
+        <span class="dhw-app-name">{{ app_title }}</span>
+      </div>
     </div>
     <nav aria-label="App-Navigation">
-      <a href="https://start.dhw.wien">dHW Start</a>
-      <a href="/">Übersicht</a>
+      <a class="dhw-overview" href="/"{% if overview_active %} aria-current="page"{% endif %}>Übersicht</a>
       {% if user %}
-        <span class="dhw-header-user">{{ user.name }}</span>
-        <form action="/auth/logout" method="post">
-          <input type="hidden" name="_csrf" value="{{ csrf }}">
-          <button type="submit">Hier abmelden</button>
-        </form>
+        <details class="dhw-profile" data-dhw-profile>
+          <summary aria-label="Profilmenü für {{ user.name }}" title="Profilmenü"><span aria-hidden="true">{{ user_initials(user.name) }}</span></summary>
+          <div class="dhw-profile-panel">
+            <span class="dhw-header-user">{{ user.name }}</span>
+            <a href="https://start.dhw.wien/">dHW Start öffnen</a>
+            <form action="/auth/logout" method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit">Hier abmelden</button></form>
+          </div>
+        </details>
       {% endif %}
     </nav>
   </div>
 </header>
+<script type="module" src="/assets/app-kit/shell.js"></script>

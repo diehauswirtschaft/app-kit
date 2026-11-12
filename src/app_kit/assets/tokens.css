@@ -1,5 +1,5 @@
-/* Budget da1a59a brand values; portal-inspired dark semantics. AP-02,
- * owner-approved Meeting/Protokoll pilots. No proprietary font files. */
+/* AP-02: Start is the shared web reference after owner design review.
+ * Brand values stay fixed; no proprietary font files are redistributed. */
 :root {
   color-scheme: light dark;
   --dhw-carbon: #181a20; --dhw-white: #fff; --dhw-amber: #fbd235;
@@ -10,11 +10,14 @@
   --dhw-muted: #545760; --dhw-soft: #f7f8f6; --dhw-line: var(--dhw-carbon);
   --dhw-focus: var(--dhw-azure); --dhw-danger: #8b2533; --dhw-link: var(--dhw-azure);
   --dhw-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --dhw-radius: .75rem;
+  --dhw-action-bg: var(--dhw-navy); --dhw-action-fg: var(--dhw-white);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --dhw-bg: #10264a; --dhw-fg: var(--dhw-white); --dhw-muted: var(--dhw-alabaster);
     --dhw-soft: var(--dhw-navy); --dhw-line: var(--dhw-alabaster);
+    --dhw-action-bg: var(--dhw-aqua); --dhw-action-fg: var(--dhw-carbon);
     --dhw-focus: var(--dhw-amber); --dhw-danger: var(--dhw-blush); --dhw-link: var(--dhw-aqua);
   }
 }

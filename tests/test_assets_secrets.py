@@ -1,6 +1,6 @@
 import pytest
 
-from app_kit import brand_logo_svg, design_css
+from app_kit import brand_logo_svg, design_css, shell_asset, user_initials
 from app_kit.secrets import UnsafeSecret, read_secret
 
 
@@ -66,6 +66,7 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
     env = Environment(
         loader=PackageLoader("app_kit", "templates"), autoescape=select_autoescape(["html"])
     )
+    env.globals["user_initials"] = user_initials
     markup = env.get_template("header.html").render(
         app_title="<script>unsafe</script>",
         user=SimpleNamespace(name="<img onerror=unsafe>"),
@@ -76,6 +77,16 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
     assert "/assets/app-kit/logo-dark.svg" in markup and 'width="1538" height="185"' in markup
     assert 'action="/auth/logout"' in markup and "Hier abmelden" in markup
     assert "vlan" not in markup.lower()
+
+
+def test_header_assets_and_initials_are_bounded_public_helpers():
+    assert user_initials("  Erika Musterfrau ") == "EM"
+    assert user_initials("") == "M"
+    assert b"capturePortalEntry" in shell_asset("shell.js")
+    assert b"OIDC" in shell_asset("navigation.js")
+    for name in ("../auth.py", "session-key", "navigation.d.ts"):
+        with pytest.raises(ValueError):
+            shell_asset(name)
 
 
 def test_secret_descriptors_reject_links_permissions_empty_and_fifo(tmp_path):

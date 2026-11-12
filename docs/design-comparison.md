@@ -2,7 +2,7 @@
 
 Source inspection: Budget design commit `da1a59a6b589ba41ebc02f7027a092ab40a54098`; portal `services/bff/src/app.css` at `2018317505bf58b9a83f1482335ba07e537f47fd`. Owner approved defaults: Budget-inspired new apps, system dark mode informed by Start, portal itself unchanged, temporary system font without proprietary font redistribution. Meeting/Protokoll, not Leitungskreis, are the first consumers of this implementation.
 
-| Area | Budget source | Portal source | app-kit pilot |
+| Area | Budget source | Portal source | Initial app-kit pilot (superseded below) |
 | --- | --- | --- | --- |
 | Light base | white, carbon text | white/cream surfaces, navy headings | white/carbon, flat/square |
 | Primary action | latest README allows Amber; token description still forbids it | navy, Aqua in dark mode | Amber with carbon text, both modes |
@@ -15,6 +15,10 @@ Source inspection: Budget design commit `da1a59a6b589ba41ebc02f7027a092ab40a5409
 Public portal check on 2026-11-11: verified HTTPS root 200, public stylesheet `/_app/immutable/assets/0.DHt1Slym.css`, SHA256 `9d12630721c0c43a56a2bdbca61cae579bf6e35526c0fbff0b91143f3bba6418`; contains system dark media query. Only anonymous public stylesheet bytes were examined, no session/cookie/token headers saved. This supplements source comparison, not a pixel-identical authenticated portal audit.
 
 Header follow-up at owner request: inspected Start `services/bff/src/routes/+layout.svelte` and its SVG wordmarks at source `fdb44cf68299ade9d1d31a76227d4fcab285f944`. The kit now uses the byte-identical outlined SVGs (light SHA256 `c77ea075fc17aff63e437bc5a9520b93789939c1e231f28bbd98e1243e9603d6`, dark `e5138b7d43479d44149911379323af074d1de72f1b6f66215c38cd34d09bd7bf`), Start's navy/white header surfaces, aqua app-name separator and 2px Amber bottom border. The SVGs contain paths, masks and groups, not font files or external references. Proprietary Moderat is still not redistributed. No Start source/runtime or app permission logic is changed; no network/VLAN switcher is brought into these standalone apps.
+
+Owner follow-up 2026-11-12: **Start is now the visual reference**, not the square Budget pilot. The shared Svelte/Vue/Jinja header uses the same geometry, a fixed 1.75rem separator, native profile disclosure with initials, and optional fixed-destination portal-back control. Controls use moderate radii and Navy/White (light) or Aqua/Carbon (dark) actions. Network selection belongs to the portal's network sections, not this shell. The tab-local `entry=start|staging` word is cosmetic only; no shared cookie, tokens or user claims in browser storage. Vue locks exit controls during recording; the Jinja shell guards dirty editor forms.
+
+Mittagstisch source `41a9c4529914bd73f77c570aea66f48bf1581f17`, `src/auth.ts:23`, maps OIDC `profile.picture` to its image. Its authentication/logging is not copied. A real picture requires a reviewed verified-claim/image-delivery path; arbitrary external images are not enabled by the new header. Initials remain the fallback. No production Keycloak change and no proprietary fonts copied.
 
 The new dark palette is a web adaptation, not a claim that the print guide defines dark mode. Functional danger/success/focus colors remain accessible. The original print PDF/artifact was not re-reviewed; no speculative print rules or licensed font assets were imported.
 

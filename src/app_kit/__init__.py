@@ -2,12 +2,23 @@
 
 from importlib.resources import files
 
-__version__ = "0.1.0a3"
+__version__ = "0.1.0a4"
 
 
 def brand_logo_svg(*, dark: bool = False) -> bytes:
     """AP-02: only packaged, script-free brand artwork; never caller paths."""
     name = "logo-dark.svg" if dark else "logo.svg"
+    return files("app_kit").joinpath("assets/" + name).read_bytes()
+
+
+def user_initials(name: str) -> str:
+    return "".join(part[0] for part in (name.strip() or "Mitglied").split()[:2]).upper()
+
+
+def shell_asset(name: str) -> bytes:
+    # AP-02: a closed set of public modules, never a browser-selected file path.
+    if name not in {"navigation.js", "shell.js"}:
+        raise ValueError("Unknown header asset")
     return files("app_kit").joinpath("assets/" + name).read_bytes()
 
 

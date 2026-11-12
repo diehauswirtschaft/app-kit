@@ -1,17 +1,19 @@
 {
   "name": "@diehauswirtschaft/app-kit",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Shared dHW design tokens and thin Vue header",
   "license": "GPL-3.0-only",
   "type": "module",
-  "files": ["src/app_kit/assets/tokens.css", "src/app_kit/assets/header.css", "src/app_kit/assets/logo.svg", "src/app_kit/assets/logo-dark.svg", "vue", "README.md", "LICENSE"],
+  "files": ["src/app_kit/assets/tokens.css", "src/app_kit/assets/header.css", "src/app_kit/assets/logo.svg", "src/app_kit/assets/logo-dark.svg", "src/app_kit/assets/navigation.js", "src/app_kit/assets/navigation.d.ts", "svelte", "vue", "README.md", "LICENSE"],
   "exports": {
     "./tokens.css": "./src/app_kit/assets/tokens.css",
     "./header.css": "./src/app_kit/assets/header.css",
     "./logo.svg": "./src/app_kit/assets/logo.svg",
     "./logo-dark.svg": "./src/app_kit/assets/logo-dark.svg",
+    "./navigation": { "types": "./src/app_kit/assets/navigation.d.ts", "default": "./src/app_kit/assets/navigation.js" },
+    "./svelte/AppHeader.svelte": "./svelte/AppHeader.svelte",
     "./vue/AppHeader.vue": "./vue/AppHeader.vue"
   },
-  "peerDependencies": { "vue": "^3.5.0" },
-  "peerDependenciesMeta": { "vue": { "optional": true } }
+  "peerDependencies": { "vue": "^3.5.0", "svelte": "^5.0.0" },
+  "peerDependenciesMeta": { "vue": { "optional": true }, "svelte": { "optional": true } }
 }

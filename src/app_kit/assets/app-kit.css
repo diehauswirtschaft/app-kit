@@ -6,14 +6,14 @@ a { color: var(--dhw-link); text-underline-offset: .2em; }
 :focus-visible { outline: 3px solid var(--dhw-focus); outline-offset: 3px; }
 .dhw-skip { position: absolute; top: -6rem; left: 1rem; padding: .75rem; background: var(--dhw-bg); z-index: 10; }
 .dhw-skip:focus { top: 1rem; }
-.dhw-main { max-width: 72rem; margin: 2rem auto; padding: 0 1rem 4rem; }
+.dhw-main { max-width: 90rem; margin: 0 auto; padding: clamp(2rem, 4vw, 3.75rem) clamp(1rem, 4vw, 4.5rem) 4rem; }
 h1, h2, h3 { line-height: 1.25; overflow-wrap: anywhere; }
-h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); text-transform: uppercase; font-weight: 500; }
-h2 { margin-top: 2rem; font-weight: 500; }
-button, input, textarea, select { font: inherit; border-radius: 0; }
+h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; }
+h2 { margin-top: 2rem; font-weight: 700; }
+button, input, textarea, select, .dhw-button { font: inherit; border-radius: var(--dhw-radius); }
 button, .dhw-button { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .65rem 1rem; border: 1px solid var(--dhw-line); color: var(--dhw-fg); background: var(--dhw-bg); cursor: pointer; text-decoration: none; }
 button:hover, .dhw-button:hover { background: var(--dhw-soft); }
-.dhw-primary, .dhw-primary:hover { background: var(--dhw-amber); color: var(--dhw-carbon); border-color: var(--dhw-carbon); }
+.dhw-primary, .dhw-primary:hover { background: var(--dhw-action-bg); color: var(--dhw-action-fg); border-color: var(--dhw-action-bg); }
 button:disabled { opacity: .6; cursor: not-allowed; }
 label { display: block; margin: 1rem 0 .25rem; font-weight: 600; }
 input:not([type=checkbox]), textarea, select { width: 100%; min-height: 44px; padding: .7rem; color: var(--dhw-fg); background: var(--dhw-bg); border: 1px solid var(--dhw-line); }
