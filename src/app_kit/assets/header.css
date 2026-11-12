@@ -12,6 +12,10 @@
 /* A fixed separator, not a text-box border: font metrics cannot change its height. */
 .dhw-app-name::before { content: ''; flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
 .dhw-header .dhw-back { box-sizing: border-box; display: inline-flex; justify-content: center; align-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid transparent; border-radius: var(--dhw-radius); color: inherit; background: transparent; text-decoration: none; font-size: 1.5rem; padding: 0; }
+/* Geometry rather than a font glyph: locally licensed fonts may differ. */
+.dhw-back > span { position: relative; display: block; width: 24px; height: 24px; font-size: 0; }
+.dhw-back > span::before { content: ''; position: absolute; left: 6px; top: 6px; width: 10px; height: 10px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.dhw-back > span::after { content: ''; position: absolute; left: 4px; top: 11px; width: 18px; border-bottom: 2px solid currentColor; }
 .dhw-back:hover { background: var(--dhw-soft); }
 .dhw-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; min-width: 0; margin-inline-start: auto; }
 .dhw-header a { color: inherit; text-underline-offset: .2em; }
