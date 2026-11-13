@@ -20,8 +20,10 @@
 /* AP-02: equal x-height for app-local Moderat and the system fallback. Keep
  * their licensed font sources separate, without making app labels look larger. */
 .dhw-app-name { display: inline-flex; flex-shrink: 0; align-items: center; gap: 1rem; min-width: 44px; font-size: 1.25rem; font-size-adjust: .5; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow-wrap: normal; }
-/* A fixed separator, not a text-box border: font metrics cannot change its height. */
-.dhw-app-separator { flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
+/* AP-02: Gecko needs the empty divider's width in intrinsic sizing too;
+ * flex-basis alone omits that pixel and wraps the app link despite free space.
+ * Fixed height stays independent of font metrics. */
+.dhw-app-separator { width: 1px; flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
 .dhw-header .dhw-back { position: absolute; inset-inline-start: -48px; box-sizing: border-box; display: inline-flex; justify-content: center; align-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid transparent; border-radius: var(--dhw-radius); color: inherit; background: transparent; text-decoration: none; font-size: 1.5rem; padding: 0; }
 /* Geometry rather than a font glyph: locally licensed fonts may differ. */
 .dhw-back > span { position: relative; display: block; width: 24px; height: 24px; font-size: 0; }

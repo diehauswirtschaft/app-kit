@@ -103,6 +103,7 @@ def test_short_app_names_cannot_wrap_inside_the_title_box():
 def test_app_label_metrics_and_optional_portal_wordmark_stay_shared():
     css = design_css()
     assert "font-size-adjust: .5" in css
+    assert ".dhw-app-separator { width: 1px; flex: 0 0 1px;" in css
     assert ".dhw-wordmark-mobile .dhw-brand-logo { display: block; }" in css
     assert ".dhw-wordmark-mobile .dhw-brand-signet { display: none; }" in css
     assert "width: clamp(7.5rem, 36vw, 9rem)" in css
