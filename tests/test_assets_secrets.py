@@ -79,6 +79,13 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
     assert "vlan" not in markup.lower()
 
 
+def test_short_app_names_cannot_wrap_inside_the_title_box():
+    css = design_css()
+    assert "white-space: nowrap" in css
+    assert "min-width: max-content" in css
+    assert ".dhw-brand { display: inline-flex; flex-wrap: wrap;" in css
+
+
 def test_header_assets_and_initials_are_bounded_public_helpers():
     assert user_initials("  Erika Musterfrau ") == "EM"
     assert user_initials("") == "M"

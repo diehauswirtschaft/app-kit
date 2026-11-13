@@ -2,7 +2,7 @@
 
 from importlib.resources import files
 
-__version__ = "0.1.0a4"
+__version__ = "0.1.0a5"
 
 
 def brand_logo_svg(*, dark: bool = False) -> bytes:
