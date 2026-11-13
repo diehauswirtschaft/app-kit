@@ -2,12 +2,13 @@
 
 from importlib.resources import files
 
-__version__ = "0.1.0a5"
+__version__ = "0.1.0a6"
 
 
-def brand_logo_svg(*, dark: bool = False) -> bytes:
+def brand_logo_svg(*, dark: bool = False, signet: bool = False) -> bytes:
     """AP-02: only packaged, script-free brand artwork; never caller paths."""
-    name = "logo-dark.svg" if dark else "logo.svg"
+    prefix = "signet" if signet else "logo"
+    name = prefix + ("-dark.svg" if dark else ".svg")
     return files("app_kit").joinpath("assets/" + name).read_bytes()
 
 

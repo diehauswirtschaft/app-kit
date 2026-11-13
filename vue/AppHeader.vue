@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import logo from '../src/app_kit/assets/logo.svg'
 import logoDark from '../src/app_kit/assets/logo-dark.svg'
+import signet from '../src/app_kit/assets/signet.svg'
+import signetDark from '../src/app_kit/assets/signet-dark.svg'
 import { capturePortalEntry, initials, installHeaderInteractions } from '../src/app_kit/assets/navigation.js'
 
 const props = defineProps({
@@ -34,13 +36,14 @@ onBeforeUnmount(() => cleanup())
         <!-- AP-02: the recorder lock applies to new exit controls too. -->
         <button v-if="backHref && logoutDisabled" class="dhw-back" type="button" disabled aria-label="Zur Modulübersicht" title="Aufnahme zuerst beenden"><span aria-hidden="true">←</span></button>
         <a v-else-if="backHref" class="dhw-back" :href="backHref" aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>
-        <div class="dhw-brand">
+        <!-- AP-02: brand replaces Overview, but cannot bypass the recorder lock. -->
+        <a class="dhw-brand" href="/" :aria-label="`${title} – Startseite`" :aria-disabled="logoutDisabled || undefined" @click.prevent="!logoutDisabled && $emit('overview')">
           <picture class="dhw-brand-logo"><source media="(prefers-color-scheme: dark)" :srcset="logoDark"><img :src="logo" alt="die HausWirtschaft" width="1538" height="185"></picture>
+          <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" :srcset="signetDark"><img :src="signet" alt="" width="306" height="185"></picture>
           <span class="dhw-app-name">{{ title }}</span>
-        </div>
+        </a>
       </div>
       <nav aria-label="App-Navigation">
-        <a class="dhw-overview" href="/" :aria-disabled="logoutDisabled || undefined" @click.prevent="!logoutDisabled && $emit('overview')">Übersicht</a>
         <details v-if="authenticated" class="dhw-profile" data-dhw-profile>
           <summary :aria-label="`Profilmenü für ${userName || 'Mitglied'}`" title="Profilmenü"><span aria-hidden="true">{{ avatar }}</span></summary>
           <div class="dhw-profile-panel">

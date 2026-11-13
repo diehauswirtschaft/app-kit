@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dhw-app-kit"
-version = "0.1.0a5"
+version = "0.1.0a6"
 description = "Versioned dHW design and server-side OIDC building blocks"
 requires-python = ">=3.12"
 license = "GPL-3.0-only"
