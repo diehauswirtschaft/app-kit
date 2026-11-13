@@ -36,12 +36,16 @@ onBeforeUnmount(() => cleanup())
         <!-- AP-02: the recorder lock applies to new exit controls too. -->
         <button v-if="backHref && logoutDisabled" class="dhw-back" type="button" disabled aria-label="Zur Modulübersicht" title="Aufnahme zuerst beenden"><span aria-hidden="true">←</span></button>
         <a v-else-if="backHref" class="dhw-back" :href="backHref" aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>
-        <!-- AP-02: brand replaces Overview, but cannot bypass the recorder lock. -->
-        <a class="dhw-brand" href="/" :aria-label="`${title} – Startseite`" :aria-disabled="logoutDisabled || undefined" @click.prevent="!logoutDisabled && $emit('overview')">
+        <div class="dhw-brand">
+        <!-- AP-02: neither split target may bypass the recorder exit lock.
+             The cosmetic hint selects only the fixed production/staging portal. -->
+        <a class="dhw-portal-link" :href="backHref || 'https://start.dhw.wien/'" aria-label="Zur dHW Startübersicht" :aria-disabled="logoutDisabled || undefined" @click="logoutDisabled && $event.preventDefault()">
           <picture class="dhw-brand-logo"><source media="(prefers-color-scheme: dark)" :srcset="logoDark"><img :src="logo" alt="die HausWirtschaft" width="1538" height="185"></picture>
           <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" :srcset="signetDark"><img :src="signet" alt="" width="306" height="185"></picture>
-          <span class="dhw-app-name">{{ title }}</span>
         </a>
+        <span class="dhw-app-separator" aria-hidden="true"></span>
+        <a class="dhw-app-name" href="/" :aria-label="`${title} – Startseite`" :aria-disabled="logoutDisabled || undefined" @click.prevent="!logoutDisabled && $emit('overview')">{{ title }}</a>
+        </div>
       </div>
       <nav aria-label="App-Navigation">
         <details v-if="authenticated" class="dhw-profile" data-dhw-profile>

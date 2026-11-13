@@ -15,8 +15,10 @@
     overviewActive?: boolean;
     profileActive?: boolean;
     mobileWordmark?: boolean;
+    /** AP-02: fixed caller-owned portal destination, never a browser return URL. */
+    portalHref?: string;
   }
-  let { title, userName = '', authenticated = false, backHref = null, overviewActive = false, profileActive = false, mobileWordmark = false }: Props = $props();
+  let { title, userName = '', authenticated = false, backHref = null, overviewActive = false, profileActive = false, mobileWordmark = false, portalHref = 'https://start.dhw.wien/' }: Props = $props();
   let root: HTMLElement;
   onMount(() => installHeaderInteractions(root));
 </script>
@@ -25,11 +27,14 @@
   <div class="dhw-header-inner">
     <div class="dhw-brand-group">
       {#if backHref}<a class="dhw-back" href={backHref} aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>{/if}
-      <a class="dhw-brand" href="/" aria-label={`${title} – Startseite`} aria-current={overviewActive ? 'page' : undefined}>
+      <div class="dhw-brand">
+      <a class="dhw-portal-link" href={portalHref} aria-label="Zur dHW Startübersicht">
         <picture class="dhw-brand-logo"><source media="(prefers-color-scheme: dark)" srcset={logoDark} /><img src={logo} alt="die HausWirtschaft" width="1538" height="185" /></picture>
         <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" srcset={signetDark} /><img src={signet} alt="" width="306" height="185" /></picture>
-        <span class="dhw-app-name">{title}</span>
       </a>
+      <span class="dhw-app-separator" aria-hidden="true"></span>
+      <a class="dhw-app-name" href="/" aria-label={`${title} – Startseite`} aria-current={overviewActive ? 'page' : undefined}>{title}</a>
+      </div>
     </div>
     <nav aria-label="App-Navigation">
       {#if authenticated}

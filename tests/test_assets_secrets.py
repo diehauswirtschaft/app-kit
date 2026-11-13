@@ -85,7 +85,10 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
     assert "/assets/app-kit/logo-dark.svg" in markup and 'width="1538" height="185"' in markup
     assert 'action="/auth/logout"' in markup and "Hier abmelden" in markup
     assert "vlan" not in markup.lower()
-    assert 'class="dhw-brand" href="/"' in markup
+    assert '<div class="dhw-brand">' in markup
+    assert 'class="dhw-portal-link" data-dhw-portal-home href="https://start.dhw.wien/"' in markup
+    assert 'class="dhw-app-name" href="/"' in markup
+    assert 'class="dhw-app-separator" aria-hidden="true"' in markup
     assert ">Übersicht</a>" not in markup
     assert "/assets/app-kit/signet-dark.svg" in markup
 
@@ -93,7 +96,7 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
 def test_short_app_names_cannot_wrap_inside_the_title_box():
     css = design_css()
     assert "white-space: nowrap" in css
-    assert "min-width: max-content" in css
+    assert "min-width: 44px" in css
     assert ".dhw-brand { display: inline-flex; flex-wrap: wrap;" in css
 
 

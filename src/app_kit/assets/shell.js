@@ -12,6 +12,10 @@ if (header) {
   }
   const back = header.querySelector('[data-dhw-portal-back]')
   if (back && target) { back.href = target; back.hidden = false }
+  // AP-02: the logo is independent of Back, but returns to the same fixed
+  // portal when an entry hint exists; standalone uses the production portal.
+  const portal = header.querySelector('[data-dhw-portal-home]')
+  if (portal && target) portal.href = target
   installHeaderInteractions(header)
 }
 

@@ -7,7 +7,10 @@
 .dhw-header-inner { box-sizing: border-box; display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 1.25rem; width: 100%; max-width: 90rem; min-height: 5.75rem; margin-inline: auto; padding: .85rem max(3rem, clamp(1rem, 4vw, 4.5rem)); }
 .dhw-brand-group { position: relative; display: flex; align-items: center; min-width: 0; max-width: 100%; }
 .dhw-header .dhw-brand { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1rem; min-width: 0; max-width: 100%; min-height: 44px; color: inherit; text-decoration: none; }
-.dhw-brand[aria-disabled=true] { cursor: not-allowed; }
+/* AP-02: separate portal/app targets retain the previous brand geometry. */
+.dhw-header .dhw-portal-link, .dhw-header .dhw-app-name { color: inherit; text-decoration: none; min-height: 44px; }
+.dhw-portal-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
+.dhw-header a[aria-disabled=true] { cursor: not-allowed; }
 .dhw-brand-logo { display: block; flex: 0 0 auto; }
 .dhw-brand-signet { display: none; }
 .dhw-brand-logo source { display: none; }
@@ -16,9 +19,9 @@
  * If space is tight, wrap the whole brand/title or navigation, not its letters. */
 /* AP-02: equal x-height for app-local Moderat and the system fallback. Keep
  * their licensed font sources separate, without making app labels look larger. */
-.dhw-app-name { display: inline-flex; flex-shrink: 0; align-items: center; gap: 1rem; min-width: max-content; font-size: 1.25rem; font-size-adjust: .5; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow-wrap: normal; }
+.dhw-app-name { display: inline-flex; flex-shrink: 0; align-items: center; gap: 1rem; min-width: 44px; font-size: 1.25rem; font-size-adjust: .5; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow-wrap: normal; }
 /* A fixed separator, not a text-box border: font metrics cannot change its height. */
-.dhw-app-name::before { content: ''; flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
+.dhw-app-separator { flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
 .dhw-header .dhw-back { position: absolute; inset-inline-start: -48px; box-sizing: border-box; display: inline-flex; justify-content: center; align-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid transparent; border-radius: var(--dhw-radius); color: inherit; background: transparent; text-decoration: none; font-size: 1.5rem; padding: 0; }
 /* Geometry rather than a font glyph: locally licensed fonts may differ. */
 .dhw-back > span { position: relative; display: block; width: 24px; height: 24px; font-size: 0; }
@@ -43,6 +46,9 @@
   .dhw-brand-group { flex: 1 1 auto; gap: .5rem; }
   .dhw-header .dhw-back { position: static; flex: 0 0 44px; }
   .dhw-header .dhw-brand { flex: 0 1 auto; flex-wrap: nowrap; gap: .5rem; }
+  /* A 44px logo target around the existing 40px signet, without moving it
+   * or reserving any space for a missing Back control. */
+  .dhw-portal-link { padding-inline: 2px; margin-inline: -2px; }
   .dhw-brand-logo { display: none; }
   .dhw-brand-signet { display: block; flex: 0 0 40px; }
   .dhw-brand-signet source { display: none; }
