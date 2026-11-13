@@ -1,7 +1,13 @@
 import pytest
 
-from app_kit import brand_logo_svg, design_css, shell_asset, user_initials
+from app_kit import __version__, brand_logo_svg, design_css, shell_asset, user_initials
 from app_kit.secrets import UnsafeSecret, read_secret
+
+
+def test_runtime_version_matches_the_installed_distribution():
+    from importlib.metadata import version
+
+    assert __version__ == version("dhw-app-kit")
 
 
 def test_assets_are_offline_system_dark_mode_without_fonts_or_scripts():
