@@ -14,13 +14,14 @@
     backHref?: string | null;
     overviewActive?: boolean;
     profileActive?: boolean;
+    mobileWordmark?: boolean;
   }
-  let { title, userName = '', authenticated = false, backHref = null, overviewActive = false, profileActive = false }: Props = $props();
+  let { title, userName = '', authenticated = false, backHref = null, overviewActive = false, profileActive = false, mobileWordmark = false }: Props = $props();
   let root: HTMLElement;
   onMount(() => installHeaderInteractions(root));
 </script>
 
-<header bind:this={root} class="dhw-header">
+<header bind:this={root} class="dhw-header" class:dhw-wordmark-mobile={mobileWordmark}>
   <div class="dhw-header-inner">
     <div class="dhw-brand-group">
       {#if backHref}<a class="dhw-back" href={backHref} aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>{/if}
