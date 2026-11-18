@@ -38,11 +38,27 @@
 .dhw-profile > summary::-webkit-details-marker { display: none; }
 .dhw-profile-panel { box-sizing: border-box; position: absolute; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: var(--dhw-menu-shadow); }
 .dhw-header-user { display: block; margin: 0 0 .75rem; overflow-wrap: anywhere; font-weight: 700; }
-.dhw-profile-panel a { display: flex; align-items: center; min-height: 44px; }
+.dhw-profile-panel a { display: flex; align-items: center; min-height: 44px; margin-inline: -.5rem; padding: .5rem; border-radius: calc(var(--dhw-radius) / 1.5); text-decoration: none; transition: background-color 120ms ease-out; }
+/* AP-02: menu rows get an Aqua-tinted hover in both schemes; current page is bold only. */
+.dhw-profile-panel a:hover { background: color-mix(in srgb, var(--dhw-aqua) 35%, var(--dhw-bg)); text-decoration: underline; }
+.dhw-profile-panel a[aria-current=page] { font-weight: 700; }
+.dhw-profile-panel .dhw-header-user { padding-bottom: .75rem; border-bottom: 1px solid color-mix(in srgb, var(--dhw-line) 25%, transparent); }
 .dhw-header button:not(.dhw-back) { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .5rem .9rem; border: 1px solid var(--dhw-action-bg); border-radius: var(--dhw-radius); font: inherit; font-weight: 700; color: var(--dhw-action-fg); background: var(--dhw-action-bg); cursor: pointer; }
 .dhw-header button:disabled { opacity: .6; cursor: not-allowed; }
+.dhw-header button:not(.dhw-back) { transition: background-color 120ms ease-out, border-color 120ms ease-out; }
+/* AP-02: action hover Navy -> Azure (light), Aqua -> lighter Aqua (dark); text pairs stay >=4.5:1. */
+.dhw-header button:not(.dhw-back):not(:disabled):hover { background: var(--dhw-azure); border-color: var(--dhw-azure); }
+.dhw-profile-panel > button, .dhw-profile-panel > form { width: 100%; margin-top: .75rem; }
+.dhw-profile-panel > form > button { width: 100%; }
+.dhw-profile > summary { transition: box-shadow 120ms ease-out; }
+.dhw-profile > summary:hover, .dhw-profile[open] > summary { box-shadow: 0 0 0 3px var(--dhw-amber); }
 .dhw-header :focus-visible { outline: 3px solid var(--dhw-focus); outline-offset: 3px; }
-@media (prefers-color-scheme: dark) { .dhw-header { color: var(--dhw-white); background: var(--dhw-navy); } }
+@media (prefers-color-scheme: dark) {
+  .dhw-header { color: var(--dhw-white); background: var(--dhw-navy); }
+  .dhw-header button:not(.dhw-back):not(:disabled):hover { background: color-mix(in srgb, var(--dhw-aqua) 70%, var(--dhw-white)); border-color: color-mix(in srgb, var(--dhw-aqua) 70%, var(--dhw-white)); }
+}
+/* Svelte/Vue consumers load header.css without app-kit.css; keep the motion guard here too. */
+@media (prefers-reduced-motion: reduce) { .dhw-header *, .dhw-header *::before, .dhw-header *::after { transition: none !important; } }
 @media (max-width: 44rem) {
   .dhw-header-inner { flex-wrap: nowrap; gap: .5rem; min-height: 4.5rem; padding: .75rem 1rem; }
   .dhw-brand-group { flex: 1 1 auto; gap: .5rem; }

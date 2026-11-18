@@ -9,3 +9,4 @@ dist/
 *.key
 coverage.xml
 htmlcov/
+.idea/
