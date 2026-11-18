@@ -1,0 +1,34 @@
+{# AP-02 / ASI-006: own server identity; the entry hint is cosmetic only.
+   Brand navigation is covered by the dirty-editor guard. No external photos
+   are requested without a separately reviewed, verified profile-image path. #}
+<header class="dhw-header">
+  <div class="dhw-header-inner">
+    <div class="dhw-brand-group">
+      <a class="dhw-back" data-dhw-portal-back hidden href="https://start.dhw.wien/" aria-label="Zur Modulübersicht" title="Zur Modulübersicht"><span aria-hidden="true">←</span></a>
+      <div class="dhw-brand">
+      <a class="dhw-portal-link" data-dhw-portal-home href="https://start.dhw.wien/" aria-label="Zur dHW Startübersicht">
+        <picture class="dhw-brand-logo">
+          <source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/logo-dark.svg">
+          <img src="/assets/app-kit/logo.svg" alt="die HausWirtschaft" width="1538" height="185">
+        </picture>
+        <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/signet-dark.svg"><img src="/assets/app-kit/signet.svg" alt="" width="306" height="185"></picture>
+      </a>
+      <span class="dhw-app-separator" aria-hidden="true"></span>
+      <a class="dhw-app-name" href="/" aria-label="{{ app_title }} – Startseite"{% if overview_active %} aria-current="page"{% endif %}>{{ app_title }}</a>
+      </div>
+    </div>
+    <nav aria-label="App-Navigation">
+      {% if user %}
+        <details class="dhw-profile" data-dhw-profile>
+          <summary aria-label="Profilmenü für {{ user.name }}" title="Profilmenü"><span aria-hidden="true">{{ user_initials(user.name) }}</span></summary>
+          <div class="dhw-profile-panel">
+            <span class="dhw-header-user">{{ user.name }}</span>
+            <a href="https://start.dhw.wien/">dHW Start öffnen</a>
+            <form action="/auth/logout" method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit">Hier abmelden</button></form>
+          </div>
+        </details>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+<script type="module" src="/assets/app-kit/shell.js"></script>
