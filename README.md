@@ -4,6 +4,17 @@ Shared, versioned dHW building blocks. **Pre-release pilot, not production-certi
 
 Owner decisions: Meeting and Protokoll are the first consumers; Felix continues Leitungskreis independently. The portal is not redesigned. GPL-3.0-only; no proprietary fonts, credentials or participant data are included.
 
+**Owner clarification, 2026-11-18 — blocking SDK boundary:** Each consumer owns
+its session persistence. app-kit must not mandate PostgreSQL, SQLite, Redis,
+an ORM, or a separate database service. Shared OIDC/header building blocks must
+integrate with the app's session management without choosing its storage.
+Server-side tokens, opaque host-bound browser sessions and the common validation
+profile remain security requirements, not a prescribed storage technology.
+The PostgreSQL-bound `OIDC` class described below is the existing pilot
+implementation, **not the intended generic SDK prerequisite**. It must be
+uncoupled before this draft is approved as a reusable app foundation. No LK
+application logic or storage migration is authorized by publishing this pilot.
+
 ## Contents
 
 - **Design:** framework-neutral tokens, system light/dark mode, flat Budget-inspired light appearance, high-contrast portal-inspired dark palette. Amber primary actions, square controls, visible focus, reduced motion and print support.
