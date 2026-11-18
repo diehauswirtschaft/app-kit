@@ -30,6 +30,12 @@ def test_assets_are_offline_system_dark_mode_without_fonts_or_scripts():
         ("abd4c4", "10264a"),
         ("f2a69f", "10264a"),
         ("8b2533", "ffffff"),
+        # Light page surface (--dhw-surface) behind body text, links and errors.
+        ("181a20", "f5f1eb"),
+        ("153362", "f5f1eb"),
+        ("545760", "f5f1eb"),
+        ("2353a1", "f5f1eb"),
+        ("8b2533", "f5f1eb"),
     ],
 )
 def test_semantic_text_contrast_aa(foreground, background):

@@ -7,6 +7,9 @@
   --dhw-blush: #f2a69f; --dhw-mint: #58ad83; --dhw-watermelon: #e64254;
   --dhw-alabaster: #e1dfdb; --dhw-emerald: #2a5d49;
   --dhw-bg: var(--dhw-white); --dhw-fg: var(--dhw-carbon);
+  /* AP-02: page surface behind content, matching Start's shell (--shell-surface).
+   * Content blocks, inputs and menus stay on --dhw-bg. */
+  --dhw-surface: #f5f1eb;
   --dhw-muted: #545760; --dhw-soft: #f7f8f6; --dhw-line: var(--dhw-carbon);
   --dhw-focus: var(--dhw-azure); --dhw-danger: #8b2533; --dhw-link: var(--dhw-azure);
   --dhw-font: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -16,7 +19,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --dhw-bg: #10264a; --dhw-fg: var(--dhw-white); --dhw-muted: var(--dhw-alabaster);
+    --dhw-bg: #10264a; --dhw-surface: var(--dhw-bg); --dhw-fg: var(--dhw-white); --dhw-muted: var(--dhw-alabaster);
     --dhw-soft: var(--dhw-navy); --dhw-line: var(--dhw-alabaster);
     --dhw-action-bg: var(--dhw-aqua); --dhw-action-fg: var(--dhw-carbon);
     --dhw-focus: var(--dhw-amber); --dhw-danger: var(--dhw-blush); --dhw-link: var(--dhw-aqua);
