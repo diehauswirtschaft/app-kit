@@ -5,11 +5,12 @@
   import logoDark from '../src/app_kit/assets/logo-dark.svg';
   import signet from '../src/app_kit/assets/signet.svg';
   import signetDark from '../src/app_kit/assets/signet-dark.svg';
-  import { initials, installHeaderInteractions } from '../src/app_kit/assets/navigation.js';
+  import { avatarPath, initials, installHeaderInteractions } from '../src/app_kit/assets/navigation.js';
 
   interface Props {
     title: string;
     userName?: string;
+    userImage?: string | null;
     authenticated?: boolean;
     backHref?: string | null;
     overviewActive?: boolean;
@@ -18,9 +19,15 @@
     /** AP-02: fixed caller-owned portal destination, never a browser return URL. */
     portalHref?: string;
   }
-  let { title, userName = '', authenticated = false, backHref = null, overviewActive = false, profileActive = false, mobileWordmark = false, portalHref = 'https://start.dhw.wien/' }: Props = $props();
+  let { title, userName = '', userImage = null, authenticated = false, backHref = null, overviewActive = false, profileActive = false, mobileWordmark = false, portalHref = 'https://start.dhw.wien/' }: Props = $props();
+  let mounted = $state(false);
+  const imagePath = $derived(mounted ? avatarPath(userImage) : null);
+  let loaded = $state<string | null>(null);
   let root: HTMLElement;
-  onMount(() => installHeaderInteractions(root));
+  onMount(() => {
+    mounted = true;
+    return installHeaderInteractions(root);
+  });
 </script>
 
 <header bind:this={root} class="dhw-header" class:dhw-wordmark-mobile={mobileWordmark}>
@@ -39,7 +46,7 @@
     <nav aria-label="App-Navigation">
       {#if authenticated}
         <details class="dhw-profile" data-dhw-profile>
-          <summary aria-label={`Profilmenü für ${userName || 'Mitglied'}`} title="Profilmenü"><span aria-hidden="true">{initials(userName)}</span></summary>
+          <summary aria-label={`Profilmenü für ${userName || 'Mitglied'}`} title="Profilmenü"><span aria-hidden="true" hidden={imagePath !== null && loaded === imagePath}>{initials(userName)}</span>{#if imagePath}{#key imagePath}<img class="dhw-avatar-image" alt="" src={imagePath} hidden={loaded !== imagePath} onload={() => { loaded = imagePath; }} onerror={() => { loaded = null; }} />{/key}{/if}</summary>
           <div class="dhw-profile-panel">
             <span class="dhw-header-user">{userName}</span>
             <a href="/profil" aria-current={profileActive ? 'page' : undefined}>Mein Profil</a>
