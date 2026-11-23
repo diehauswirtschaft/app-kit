@@ -12,7 +12,7 @@ import math
 import re
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
+from .avatar import erp_picture_url
 from .secrets import read_secret
 
 metadata = MetaData()
@@ -79,6 +80,8 @@ class Identity:
     subject: str
     name: str
     roles: frozenset[str]
+    # Server-only presentation; no change to principal equality or admission (AP-01).
+    picture_url: str | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -330,7 +333,13 @@ class OIDC:
         if not roles.intersection(self.settings.admission_roles):
             raise AuthError("No application role")
         name = display_name if isinstance(display_name, str) else "Mitglied"
-        return Identity(self.settings.issuer, access["sub"], name[:120], roles)
+        return Identity(
+            self.settings.issuer,
+            access["sub"],
+            name[:120],
+            roles,
+            picture_url=erp_picture_url(access.get("picture")),
+        )
 
     async def login(self, request: Request):
         config, _ = await self.provider()
