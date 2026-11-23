@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { portalHref, entryForOrigin, capturePortalEntry, initials } from '../src/app_kit/assets/navigation.js'
+import { portalHref, entryForOrigin, capturePortalEntry, initials, avatarPath } from '../src/app_kit/assets/navigation.js'
+test('avatar paths stay on the app origin and contain no query or fragment', () => {
+  assert.equal(avatarPath('/profile/avatar.webp'), '/profile/avatar.webp')
+  for (const path of [null, '', '//other.invalid/image', '/\\other.invalid/image', '/%2fother.invalid', 'https://other.invalid/a', '/a?key=x', '/a#fragment', 'data:image/png,abc']) assert.equal(avatarPath(path), null)
+})
 function storage() {
   const data = new Map()
   return { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key), data }

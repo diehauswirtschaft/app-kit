@@ -20,7 +20,7 @@
     <nav aria-label="App-Navigation">
       {% if user %}
         <details class="dhw-profile" data-dhw-profile>
-          <summary aria-label="Profilmenü für {{ user.name }}" title="Profilmenü"><span aria-hidden="true">{{ user_initials(user.name) }}</span></summary>
+          <summary aria-label="Profilmenü für {{ user.name }}" title="Profilmenü"><span aria-hidden="true">{{ user_initials(user.name) }}</span>{% if user_image is defined and user_image %}<img class="dhw-avatar-image" data-dhw-avatar-src="{{ user_image }}" alt="" hidden>{% endif %}</summary>
           <div class="dhw-profile-panel">
             <span class="dhw-header-user">{{ user.name }}</span>
             <a href="https://start.dhw.wien/">dHW Start öffnen</a>

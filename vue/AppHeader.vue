@@ -4,11 +4,12 @@ import logo from '../src/app_kit/assets/logo.svg'
 import logoDark from '../src/app_kit/assets/logo-dark.svg'
 import signet from '../src/app_kit/assets/signet.svg'
 import signetDark from '../src/app_kit/assets/signet-dark.svg'
-import { capturePortalEntry, initials, installHeaderInteractions } from '../src/app_kit/assets/navigation.js'
+import { avatarPath, capturePortalEntry, initials, installHeaderInteractions } from '../src/app_kit/assets/navigation.js'
 
 const props = defineProps({
   title: { type: String, required: true },
   userName: { type: String, default: '' },
+  userImage: { type: String, default: null },
   authenticated: { type: Boolean, default: false },
   logoutDisabled: { type: Boolean, default: false },
   loggingOut: { type: Boolean, default: false },
@@ -17,8 +18,12 @@ defineEmits(['logout', 'overview'])
 const root = ref(null)
 const backHref = ref(null)
 const avatar = computed(() => initials(props.userName))
+const mounted = ref(false)
+const loaded = ref(null)
+const imagePath = computed(() => mounted.value ? avatarPath(props.userImage) : null)
 let cleanup = () => {}
 onMounted(() => {
+  mounted.value = true
   let storage = null
   try { storage = window.sessionStorage } catch { /* Optional UI state only. */ }
   const url = new URL(window.location.href)
@@ -49,7 +54,7 @@ onBeforeUnmount(() => cleanup())
       </div>
       <nav aria-label="App-Navigation">
         <details v-if="authenticated" class="dhw-profile" data-dhw-profile>
-          <summary :aria-label="`Profilmenü für ${userName || 'Mitglied'}`" title="Profilmenü"><span aria-hidden="true">{{ avatar }}</span></summary>
+          <summary :aria-label="`Profilmenü für ${userName || 'Mitglied'}`" title="Profilmenü"><span aria-hidden="true" :hidden="imagePath !== null && loaded === imagePath">{{ avatar }}</span><img v-if="imagePath" :key="imagePath" class="dhw-avatar-image" alt="" :src="imagePath" :hidden="loaded !== imagePath" @load="loaded = imagePath" @error="loaded = null"></summary>
           <div class="dhw-profile-panel">
             <span class="dhw-header-user">{{ userName || 'Angemeldet' }}</span>
             <a v-if="!logoutDisabled" href="https://start.dhw.wien/">dHW Start öffnen</a>

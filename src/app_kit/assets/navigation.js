@@ -21,7 +21,18 @@ export function capturePortalEntry(url, storage) {
 export function initials(name) {
   return String(name || 'Mitglied').trim().split(/\s+/u).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase('de-AT')
 }
+// AP-02: callers own authorization and image delivery. The header never
+// contacts an external host or places query credentials in an image URL.
+export function avatarPath(value) {
+  return typeof value === 'string' && /^\/[a-z0-9_-][a-z0-9_/.-]*$/i.test(value) ? value : null
+}
 export function installHeaderInteractions(root) {
+  for (const image of root.querySelectorAll('img[data-dhw-avatar-src]')) {
+    const path = avatarPath(image.dataset.dhwAvatarSrc)
+    if (!path) continue
+    image.addEventListener('load', () => { image.hidden = false; image.previousElementSibling.hidden = true }, { once: true })
+    image.src = path
+  }
   const close = event => {
     for (const menu of root.querySelectorAll('[data-dhw-profile][open]')) {
       if (event.type === 'keydown' && event.key === 'Escape') {
