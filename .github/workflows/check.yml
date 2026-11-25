@@ -13,10 +13,17 @@ jobs:
       - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
       - run: uv sync --locked --python 3.13
       - run: uv run ruff check src tests scripts
-      - run: uv run python scripts/test_postgres.py -q
+      - run: uv run --locked pytest -q
       - run: node --test tests/*.test.mjs
       - run: uv build
-      - name: Audit locked runtime dependencies
+      - name: Cold import from the wheel without database dependencies
         run: |
-          uv export --locked --no-dev --no-emit-project --format requirements-txt > "$RUNNER_TEMP/runtime-requirements.txt"
+          uv venv --python 3.13 "$RUNNER_TEMP/base-wheel"
+          python="$RUNNER_TEMP/base-wheel/bin/python"
+          uv pip install --python "$python" dist/*.whl
+          "$python" -I -c 'from importlib.util import find_spec; from app_kit.auth import OIDC; assert all(find_spec(name) is None for name in ("sqlalchemy", "psycopg", "greenlet"))'
+      - run: uv run --locked --extra postgres python scripts/test_postgres.py -q
+      - name: Audit locked runtime dependencies (including the optional PostgreSQL adapter)
+        run: |
+          uv export --locked --extra postgres --no-dev --no-emit-project --format requirements-txt > "$RUNNER_TEMP/runtime-requirements.txt"
           uv run pip-audit -r "$RUNNER_TEMP/runtime-requirements.txt" --disable-pip --no-deps

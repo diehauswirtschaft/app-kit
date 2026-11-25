@@ -1,5 +1,6 @@
-"""Real RSA signatures and PostgreSQL; provider transport alone is synthetic."""
+"""Real RSA signatures with a synthetic provider and interchangeable stores."""
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -12,10 +13,9 @@ import pytest
 from cryptography.fernet import Fernet
 from joserfc import jwt
 from joserfc.jwk import RSAKey
-from sqlalchemy import select
 from starlette.requests import Request
 
-from app_kit.auth import OIDC, AuthError, AuthUnavailable, OIDCSettings, sessions, states
+from app_kit.auth import OIDC, AuthError, AuthUnavailable, OIDCSettings
 
 
 class Provider:
@@ -26,6 +26,10 @@ class Provider:
         self.access_changes = {}
         self.id_changes = {}
         self.nonce = None
+        self.challenge = None
+        self.refresh_entered = asyncio.Event()
+        self.resume_refresh = asyncio.Event()
+        self.resume_refresh.set()
         self.omit_nonce = False
         self.refreshes = 0
         self.jwks_keys = None
@@ -71,7 +75,7 @@ class Provider:
             "expires_in": 300,
         }
 
-    def handle(self, request):
+    async def handle(self, request):
         if request.url.path.endswith("/.well-known/openid-configuration"):
             return httpx.Response(
                 200,
@@ -100,12 +104,23 @@ class Provider:
             data = parse_qs(request.content.decode())
             if data["grant_type"] == ["refresh_token"]:
                 self.refreshes += 1
+                self.refresh_entered.set()
+                await self.resume_refresh.wait()
+            else:
+                verifier = data["code_verifier"][0]
+                calculated = (
+                    base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+                    .rstrip(b"=")
+                    .decode()
+                )
+                if not hmac.compare_digest(calculated, self.challenge):
+                    return httpx.Response(400)
             return httpx.Response(200, json=self.tokens())
         return httpx.Response(404)
 
 
 @pytest.fixture
-async def oidc(tmp_path, async_db):
+def oidc(tmp_path, store_args):
     provider = Provider()
     client = tmp_path / "client"
     client.write_text(secrets.token_urlsafe(40))
@@ -122,12 +137,12 @@ async def oidc(tmp_path, async_db):
         key,
         frozenset({"dhw-member-role"}),
     )
-    auth = OIDC(settings, async_db, transport=provider.transport, clock=lambda: provider.now[0])
-    yield auth, provider
-    await async_db.dispose()
+    return OIDC(
+        settings, **store_args, transport=provider.transport, clock=lambda: provider.now[0]
+    ), provider
 
 
-def request(path="/", cookie="", query=""):
+def request(path="/", cookie="", query="", headers=()):
     return Request(
         {
             "type": "http",
@@ -137,7 +152,7 @@ def request(path="/", cookie="", query=""):
             "client": ("127.0.0.1", 1234),
             "path": path,
             "query_string": query.encode(),
-            "headers": [(b"cookie", cookie.encode())],
+            "headers": [(b"cookie", cookie.encode()), *headers],
         }
     )
 
@@ -148,15 +163,7 @@ async def sign_in(auth, provider):
     provider.nonce = query["nonce"][0]
     assert query["code_challenge_method"] == ["S256"]
     binding = response.headers["set-cookie"].split(";")[0]
-    async with auth.engine.connect() as db:
-        row = (await db.execute(select(states))).mappings().first()
-        data = auth.unseal(row["payload"])
-    calculated = (
-        base64.urlsafe_b64encode(hashlib.sha256(data["verifier"].encode()).digest())
-        .rstrip(b"=")
-        .decode()
-    )
-    assert hmac.compare_digest(calculated, query["code_challenge"][0])
+    provider.challenge = query["code_challenge"][0]
     params = "state=" + query["state"][0] + "&code=" + secrets.token_urlsafe(24)
     result = await auth.callback(request("/auth/callback", binding, params))
     cookies = result.headers.getlist("set-cookie")
@@ -238,9 +245,8 @@ async def test_code_flow_cookie_opaque_access_roles_encrypted_and_no_replay(oidc
     assert len(value) == 43 and "." not in value
     principal = await auth.authenticate(request(cookie=cookie))
     assert principal.roles == frozenset({"dhw-member-role"})
-    async with auth.engine.connect() as db:
-        row = (await db.execute(select(sessions))).mappings().first()
-    assert b"access_token" not in row["payload"] and b"synthetic-subject" not in row["payload"]
+    row = await auth.store.get_session(auth.scope, auth.digest(value))
+    assert b"access_token" not in row.payload and b"synthetic-subject" not in row.payload
     with pytest.raises(AuthError):
         await auth.callback(request("/auth/callback", binding, params))
 
@@ -302,13 +308,12 @@ async def test_role_revocation_and_cookie_binding(oidc):
 
 
 async def test_concurrent_refresh_single_provider_rotation_and_key_rollover(oidc):
-    import asyncio
-
     auth, provider = oidc
     cookie, _, _ = await sign_in(auth, provider)
     provider.now[0] += 301
+    other_worker = OIDC(auth.settings, store=auth.store, transport=provider.transport, clock=auth.clock)
     result = await asyncio.gather(
-        auth.authenticate(request(cookie=cookie)), auth.authenticate(request(cookie=cookie))
+        auth.authenticate(request(cookie=cookie)), other_worker.authenticate(request(cookie=cookie))
     )
     assert all(value is not None for value in result) and provider.refreshes == 1
     provider.key = RSAKey.generate_key(
@@ -330,6 +335,64 @@ async def test_concurrent_refresh_single_provider_rotation_and_key_rollover(oidc
         allowed_clients={"fixture-reader"},
     )
     assert accepted["sub"] == "service"
+
+
+async def test_logout_wins_while_refresh_in_flight(oidc):
+    auth, provider = oidc
+    cookie, _, _ = await sign_in(auth, provider)
+    logout = request(cookie=cookie, headers=[(b"origin", b"https://app.example")])
+    assert await auth.authenticate(logout) is not None
+    provider.now[0] += 301
+    provider.resume_refresh.clear()
+    refresh = asyncio.create_task(auth.authenticate(request(cookie=cookie)))
+    try:
+        await asyncio.wait_for(provider.refresh_entered.wait(), 3)
+        with pytest.raises(AuthError):
+            await auth.logout(logout, "wrong")
+        assert (await auth.logout(logout, logout.state.csrf)).status_code == 204
+    finally:
+        provider.resume_refresh.set()
+        result = await refresh
+    assert result is None
+    assert await auth.authenticate(request(cookie=cookie)) is None
+
+
+async def test_cancelled_refresh_never_restores_old_token(oidc):
+    auth, provider = oidc
+    cookie, _, _ = await sign_in(auth, provider)
+    provider.now[0] += 301
+    provider.resume_refresh.clear()
+    refresh = asyncio.create_task(auth.authenticate(request(cookie=cookie)))
+    try:
+        await asyncio.wait_for(provider.refresh_entered.wait(), 3)
+    finally:
+        refresh.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await refresh
+    row = await auth.store.get_session(auth.scope, auth.digest(cookie.split("=", 1)[1]))
+    assert row.revision < 0 and row.payload == b""
+    assert provider.refreshes == 1
+
+
+@pytest.mark.parametrize("during_refresh", [False, True])
+async def test_idle_expiry_is_not_extended(oidc, during_refresh):
+    auth, provider = oidc
+    cookie, _, _ = await sign_in(auth, provider)
+    if not during_refresh:
+        provider.now[0] += auth.settings.idle_seconds
+        assert await auth.authenticate(request(cookie=cookie)) is None
+        assert provider.refreshes == 0
+        return
+    provider.now[0] += 301
+    provider.resume_refresh.clear()
+    refresh = asyncio.create_task(auth.authenticate(request(cookie=cookie)))
+    try:
+        await asyncio.wait_for(provider.refresh_entered.wait(), 3)
+        provider.now[0] += auth.settings.idle_seconds
+    finally:
+        provider.resume_refresh.set()
+        result = await refresh
+    assert result is None
 
 
 async def test_refresh_optional_nonce_but_present_nonce_must_match(oidc):

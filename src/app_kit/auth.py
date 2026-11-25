@@ -1,4 +1,4 @@
-"""AP-01: confidential Keycloak OAuth client, bounded OIDC and encrypted DB sessions.
+"""AP-01: confidential Keycloak OAuth client, bounded OIDC and encrypted sessions.
 
 Only opaque host cookies cross the browser boundary. Roles are validated access-token
 claims, never ID-token/UserInfo/header data. No framework SessionMiddleware is used.
@@ -12,7 +12,8 @@ import math
 import re
 import secrets
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from importlib import import_module
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -23,47 +24,19 @@ from cryptography.fernet import Fernet, InvalidToken
 from joserfc import jwt
 from joserfc.errors import InvalidKeyIdError
 from joserfc.jwk import KeySet
-from sqlalchemy import (
-    Column,
-    Float,
-    Integer,
-    LargeBinary,
-    MetaData,
-    String,
-    Table,
-    and_,
-    delete,
-    func,
-    insert,
-    select,
-    update,
-)
-from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
 from .avatar import erp_picture_url
 from .secrets import read_secret
+from .session_store import LoginState, Session, SessionStore
 
-metadata = MetaData()
-states = Table(
-    "kit_login_states",
-    metadata,
-    Column("id", String(64), primary_key=True),
-    Column("scope", String(64), nullable=False),
-    Column("expires", Float, nullable=False),
-    Column("payload", LargeBinary, nullable=False),
-)
-sessions = Table(
-    "kit_sessions",
-    metadata,
-    Column("id", String(64), primary_key=True),
-    Column("scope", String(64), nullable=False),
-    Column("expires", Float, nullable=False),
-    Column("absolute", Float, nullable=False),
-    Column("revision", Integer, nullable=False),
-    Column("payload", LargeBinary, nullable=False),
-)
+
+def __getattr__(name: str):
+    # Preserve the pilot's migration imports without loading SQL on core import.
+    if name in {"metadata", "states", "sessions"}:
+        return getattr(import_module(".postgres", __package__), name)
+    raise AttributeError(name)
 
 
 class AuthError(Exception):
@@ -123,10 +96,17 @@ class OIDCSettings:
 
 class OIDC:
     def __init__(
-        self, settings: OIDCSettings, engine: AsyncEngine, *, transport=None, clock=time.time
+        self, settings: OIDCSettings, engine=None, *, store: SessionStore | None = None,
+        transport=None, clock=time.time,
     ):
         settings.validate()
-        self.settings, self.engine, self.transport, self.clock = settings, engine, transport, clock
+        if (engine is None) == (store is None):
+            raise TypeError("Supply exactly one session store or legacy PostgreSQL engine")
+        if store is None:
+            # AP-01: only the explicit legacy constructor selects PostgreSQL.
+            store = import_module(".postgres", __package__).PostgresSessionStore(engine)
+        self.store: SessionStore = store
+        self.settings, self.transport, self.clock = settings, transport, clock
         self.secret = read_secret(settings.client_secret_file)
         key = read_secret(settings.session_key_file)
         if hmac.compare_digest(key, self.secret):
@@ -345,25 +325,14 @@ class OIDC:
         config, _ = await self.provider()
         state, binding, verifier, nonce = (secrets.token_urlsafe(32) for _ in range(4))
         now = self.clock()
-        async with self.engine.begin() as db:
-            await db.execute(delete(states).where(states.c.expires < now))
-            # Serialize admission across processes; no live login is evicted.
-            await db.exec_driver_sql("LOCK TABLE kit_login_states IN SHARE ROW EXCLUSIVE MODE")
-            count = await db.scalar(
-                select(func.count()).select_from(states).where(states.c.scope == self.scope)
-            )
-            if count >= 1000:
-                raise AuthUnavailable("Login capacity exhausted")
-            await db.execute(
-                insert(states).values(
-                    id=self.digest(state),
-                    scope=self.scope,
-                    expires=now + 300,
-                    payload=self.seal(
-                        {"binding": self.digest(binding), "verifier": verifier, "nonce": nonce}
-                    ),
-                )
-            )
+        login_state = LoginState(
+            now + 300,
+            self.seal({"binding": self.digest(binding), "verifier": verifier, "nonce": nonce}),
+        )
+        if not await self.store.put_login(
+            self.scope, self.digest(state), login_state, now=now, limit=1000
+        ):
+            raise AuthUnavailable("Login capacity exhausted")
         # Authlib implements PKCE S256 and OAuth authorization parameter encoding.
         oauth = OAuth2Client(
             None,
@@ -400,26 +369,10 @@ class OIDC:
             raise AuthError("Invalid callback")
         if query.get("iss", self.settings.issuer) != self.settings.issuer:
             raise AuthError("Invalid callback issuer")
-        async with self.engine.begin() as db:
-            row = (
-                (
-                    await db.execute(
-                        delete(states)
-                        .where(
-                            and_(
-                                states.c.id == self.digest(query["state"]),
-                                states.c.scope == self.scope,
-                            )
-                        )
-                        .returning(states)
-                    )
-                )
-                .mappings()
-                .first()
-            )
-        if row is None or row["expires"] < self.clock():
+        row = await self.store.consume_login(self.scope, self.digest(query["state"]))
+        if row is None or row.expires <= self.clock():
             raise AuthError("Expired login")
-        transaction = self.unseal(row["payload"])
+        transaction = self.unseal(row.payload)
         if not hmac.compare_digest(
             transaction["binding"], self.digest(request.cookies.get("__Host-dhw-login", ""))
         ):
@@ -453,40 +406,28 @@ class OIDC:
             self.identity(access, identity.get("name"))
             sid, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
             now = self.clock()
-            async with self.engine.begin() as db:
-                await db.execute(delete(sessions).where(sessions.c.expires < now))
-                await db.exec_driver_sql("LOCK TABLE kit_sessions IN SHARE ROW EXCLUSIVE MODE")
-                if (
-                    await db.scalar(
-                        select(func.count())
-                        .select_from(sessions)
-                        .where(sessions.c.scope == self.scope)
-                    )
-                    >= 1000
-                ):
-                    raise AuthUnavailable("Session capacity exhausted")
-                await db.execute(
-                    insert(sessions).values(
-                        id=self.digest(sid),
-                        scope=self.scope,
-                        revision=0,
-                        expires=now + self.settings.idle_seconds,
-                        absolute=now + self.settings.absolute_seconds,
-                        payload=self.seal(
-                            {
-                                "tokens": tokens,
-                                "sub": access["sub"],
-                                "name": identity.get("name", "Mitglied"),
-                                "nonce": transaction["nonce"],
-                                "access_exp": access["exp"],
-                                "csrf": csrf,
-                                "session_binding": self.digest(sid),
-                                "scope": self.scope,
-                                "absolute": now + self.settings.absolute_seconds,
-                            }
-                        ),
-                    )
-                )
+            key = self.digest(sid)
+            absolute = now + self.settings.absolute_seconds
+            session = Session(
+                expires=now + self.settings.idle_seconds,
+                absolute=absolute,
+                revision=0,
+                payload=self.seal(
+                    {
+                        "tokens": tokens,
+                        "sub": access["sub"],
+                        "name": identity.get("name", "Mitglied"),
+                        "nonce": transaction["nonce"],
+                        "access_exp": access["exp"],
+                        "csrf": csrf,
+                        "session_binding": key,
+                        "scope": self.scope,
+                        "absolute": absolute,
+                    }
+                ),
+            )
+            if not await self.store.put_session(self.scope, key, session, now=now, limit=1000):
+                raise AuthUnavailable("Session capacity exhausted")
             response = RedirectResponse("/", status_code=303)
             response.set_cookie(
                 self.settings.cookie_name,
@@ -510,89 +451,102 @@ class OIDC:
         sid = request.cookies.get(self.settings.cookie_name, "")
         if not re.fullmatch(r"[A-Za-z0-9_-]{43}", sid):
             return None
-        now = self.clock()
-        # PG row lock fences refresh-token rotation across workers. It is held
-        # only during authentication, never for the subsequent application write.
-        async with self.engine.begin() as db:
-            row = (
-                (
-                    await db.execute(
-                        select(sessions)
-                        .where(
-                            and_(sessions.c.id == self.digest(sid), sessions.c.scope == self.scope)
-                        )
-                        .with_for_update()
-                    )
+        key = self.digest(sid)
+        # AP-01: wait briefly for another worker, but never authenticate using
+        # pre-refresh data. A crashed worker leaves a claim that expires normally.
+        deadline = time.monotonic() + 2
+        while True:
+            row = await self.store.get_session(self.scope, key)
+            now = self.clock()
+            if row is None or min(row.expires, row.absolute) <= now:
+                return None
+            if row.revision >= 0:
+                result = await self._authenticate_session(request, key, row, now)
+                if result is not False:
+                    return result
+            if time.monotonic() >= deadline:
+                raise AuthUnavailable("Session update in progress")
+            await asyncio.sleep(0.05)
+
+    async def _authenticate_session(self, request: Request, key: str, row: Session, now: float):
+        expected = row.revision
+        try:
+            payload = self.unseal(row.payload)
+            # AP-01: ciphertext is bound to this app and cookie; a copied
+            # database row cannot masquerade as another user's session.
+            if (
+                not hmac.compare_digest(payload.get("session_binding", ""), key)
+                or payload.get("scope") != self.scope
+                or payload.get("absolute", 0) <= now
+            ):
+                raise AuthError("Invalid session binding")
+            needs_refresh = payload["access_exp"] < now + 60
+        except Exception:
+            await self.store.delete_session(self.scope, key, expected_revision=expected)
+            return None
+        if needs_refresh:
+            # AP-01: a committed claim removes the old token from storage before
+            # exchanging it. Even cancellation or worker loss cannot replay it.
+            claim = replace(row, revision=-(expected + 1), payload=b"")
+            if not await self.store.replace_session(self.scope, key, expected, claim):
+                return False
+            expected = claim.revision
+        try:
+            if needs_refresh:
+                access = await self._refresh_session(payload)
+            else:
+                access = await self.claims(
+                    payload["tokens"]["access_token"], audience=self.settings.audience, access=True
                 )
-                .mappings()
-                .first()
+            principal = self.identity(access, payload["name"])
+            absolute = min(row.absolute, payload["absolute"])
+            if min(row.expires, absolute) <= self.clock():
+                raise AuthError("Session expired")
+            updated = Session(
+                min(now + self.settings.idle_seconds, absolute),
+                absolute,
+                row.revision + 1,
+                self.seal(payload),
             )
-            if row is None or min(row["expires"], row["absolute"]) <= now:
-                return None
-            try:
-                payload = self.unseal(row["payload"])
-                # Bind encrypted content to the opaque-cookie hash and app.
-                # A database-only attacker cannot swap ciphertext between users.
-                if (
-                    not hmac.compare_digest(payload.get("session_binding", ""), row["id"])
-                    or payload.get("scope") != self.scope
-                    or payload.get("absolute", 0) <= now
-                ):
-                    raise AuthError("Invalid session binding")
-                if payload["access_exp"] < now + 60:
-                    refresh = payload["tokens"].get("refresh_token")
-                    if not isinstance(refresh, str) or not refresh:
-                        raise AuthError("Session expired")
-                    config, _ = await self.provider()
-                    async with self.client() as client:
-                        tokens = await self.bounded_json(
-                            client,
-                            "POST",
-                            config["token_endpoint"],
-                            data={"grant_type": "refresh_token", "refresh_token": refresh},
-                            auth=(self.settings.client_id, self.secret),
-                        )
-                    access = await self.claims(
-                        tokens.get("access_token"), audience=self.settings.audience, access=True
-                    )
-                    if access["sub"] != payload["sub"]:
-                        raise AuthError("Subject changed")
-                    if "id_token" in tokens:
-                        identity = await self.claims(
-                            tokens["id_token"],
-                            audience=self.settings.client_id,
-                            nonce=payload["nonce"],
-                            access_token=tokens["access_token"],
-                            refresh=True,
-                        )
-                        if identity["sub"] != payload["sub"]:
-                            raise AuthError("Subject changed")
-                    tokens.setdefault("refresh_token", refresh)
-                    payload["tokens"] = tokens
-                    payload["access_exp"] = access["exp"]
-                else:
-                    access = await self.claims(
-                        payload["tokens"]["access_token"],
-                        audience=self.settings.audience,
-                        access=True,
-                    )
-                principal = self.identity(access, payload["name"])
-                await db.execute(
-                    update(sessions)
-                    .where(sessions.c.id == row["id"])
-                    .values(
-                        payload=self.seal(payload),
-                        expires=min(now + self.settings.idle_seconds, row["absolute"]),
-                        revision=row["revision"] + 1,
-                    )
-                )
-                request.state.csrf = payload["csrf"]
-                return principal
-            except Exception:
-                # Any uncertain refresh invalidates locally. Never replay an old
-                # rotating token or fall back to stale role claims (AP-01).
-                await db.execute(delete(sessions).where(sessions.c.id == row["id"]))
-                return None
+        except Exception:
+            # Never invalidate a newer revision on the basis of stale claims.
+            await self.store.delete_session(self.scope, key, expected_revision=expected)
+            return None
+        # AP-01: a logout or expiry cleanup during refresh wins; CAS never inserts.
+        if not await self.store.replace_session(self.scope, key, expected, updated):
+            return None if needs_refresh else False
+        request.state.csrf = payload["csrf"]
+        return principal
+
+    async def _refresh_session(self, payload):
+        refresh = payload["tokens"].get("refresh_token")
+        if not isinstance(refresh, str) or not refresh:
+            raise AuthError("Session expired")
+        config, _ = await self.provider()
+        async with self.client() as client:
+            tokens = await self.bounded_json(
+                client,
+                "POST",
+                config["token_endpoint"],
+                data={"grant_type": "refresh_token", "refresh_token": refresh},
+                auth=(self.settings.client_id, self.secret),
+            )
+        access = await self.claims(
+            tokens.get("access_token"), audience=self.settings.audience, access=True
+        )
+        if access["sub"] != payload["sub"]:
+            raise AuthError("Subject changed")
+        if "id_token" in tokens:
+            identity = await self.claims(
+                tokens["id_token"], audience=self.settings.client_id, nonce=payload["nonce"],
+                access_token=tokens["access_token"], refresh=True,
+            )
+            if identity["sub"] != payload["sub"]:
+                raise AuthError("Subject changed")
+        tokens.setdefault("refresh_token", refresh)
+        payload["tokens"] = tokens
+        payload["access_exp"] = access["exp"]
+        return access
 
     def require_csrf(self, request: Request, value: str):
         if (
@@ -605,16 +559,9 @@ class OIDC:
 
     async def logout(self, request: Request, csrf_value: str | None = None):
         self.require_csrf(request, csrf_value or request.headers.get("x-csrf-token", ""))
-        async with self.engine.begin() as db:
-            await db.execute(
-                delete(sessions).where(
-                    and_(
-                        sessions.c.id
-                        == self.digest(request.cookies.get(self.settings.cookie_name, "")),
-                        sessions.c.scope == self.scope,
-                    )
-                )
-            )
+        await self.store.delete_session(
+            self.scope, self.digest(request.cookies.get(self.settings.cookie_name, ""))
+        )
         # Explicit local logout; UI says 'Hier abmelden'. Global back-channel
         # logout is deferred, not simulated with tokens in a redirect URL.
         response = Response(status_code=204)

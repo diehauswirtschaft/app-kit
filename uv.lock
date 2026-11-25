@@ -386,9 +386,13 @@ dependencies = [
     { name = "cryptography" },
     { name = "httpx" },
     { name = "joserfc" },
+    { name = "starlette" },
+]
+
+[package.optional-dependencies]
+postgres = [
     { name = "psycopg", extra = ["binary"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "starlette" },
 ]
 
 [package.dev-dependencies]
@@ -406,10 +410,11 @@ requires-dist = [
     { name = "cryptography", specifier = ">=50,<51" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "joserfc", specifier = ">=1.5,<2" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.44,<3" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2,<4" },
+    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'postgres'", specifier = ">=2.0.44,<3" },
     { name = "starlette", specifier = ">=0.49,<2" },
 ]
+provides-extras = ["postgres"]
 
 [package.metadata.requires-dev]
 dev = [
