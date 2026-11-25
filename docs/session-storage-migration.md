@@ -1,15 +1,48 @@
 # AP-01: Session storage is owned by the consuming app
 
-## First step: keep the current callers working
+## New consumers
 
-- Keep `OIDC(settings, engine)` and the exported table metadata as a legacy PostgreSQL adapter. Protokoll can keep the same tables, opaque cookies, encrypted payloads and database. No schema or deployment change in the avatar patch.
-- Meeting already owns its OIDC and sessions. Use the standalone avatar helper with claims from Meeting's verifier; don't switch its authentication or touch recording.
-- `app_kit.avatar` does not depend on SQLAlchemy. The package as installed still does until the adapter moves to an optional extra.
+Pass a consumer implementation of `app_kit.session_store.SessionStore` as
+`OIDC(settings, store=store)`. The base package installs no database driver or
+ORM, and does not supply a default store. An app that already owns its OIDC
+flow (like Meeting) need not adopt `OIDC` to use the header or avatar helper.
 
-## Separate change: extract the storage boundary
+The core owns encryption, cookie binding, expiry policy and OIDC validation.
+The adapter stores opaque ciphertext and must implement the contract across
+all workers that share the app's sessions:
 
-1. Extract login-state and session operations into a storage protocol, with opaque encrypted payloads and atomic operations. The core owns OIDC verification, binding, expiry policy and encryption; the adapter implements the atomic storage semantics. Accept an explicitly supplied store, never select a default backend implicitly.
-2. Keep the legacy constructor import path as a compatibility facade and move PostgreSQL-specific SQL and SQLAlchemy dependencies into an optional extra. Add a cold-import test using a fresh installation without database dependencies. Protokoll opts into the extra and pins the tested release; existing tables and session data are not migrated for this change. Meeting keeps its own auth implementation.
-3. Contract-test atomic login-state consume, capacity, expiry, refresh and logout. A read/write interface or post-refresh CAS alone is insufficient: concurrent refreshes must not submit the same rotating token twice, and logout must prevent an in-flight refresh from reviving a session. Keep the current PostgreSQL locks until those guarantees pass against the real adapter. Any in-memory adapter is explicit and limited to single-process use.
+- Admit under a per-scope capacity limit without evicting live entries. Prune
+  expired records; a session is expired at the earlier of its two deadlines.
+- Consume login state atomically before contacting the provider.
+- Compare-and-replace an existing session by scoped key and exact revision.
+  Commit a negative revision with an empty payload **before** calling the
+  provider; only the winning request can use the old rotating token. Other
+  requests wait briefly, then fail closed. Never roll back or reclaim a pending
+  revision after a worker dies: the record expires and the user can sign in
+  again. Finalization may only replace that exact revision, never insert.
+- Delete for logout regardless of revision. Conditional deletes on failed
+  validation must not remove a newer revision.
 
-Keep verified `picture` server-side. Apps expose their own session-checked image route and pass only that local path to the shell; no cross-app cookie or token. Keep HTTP client request logging disabled for image URLs. No image upload or resize is introduced here.
+The test-only memory implementation is not a production backend. Run the
+contract tests against the app's real adapter and exercise parallel workers
+before deploying.
+
+## Existing PostgreSQL pilots
+
+Install the `postgres` extra. `OIDC(settings, engine)` and `metadata`,
+`states`, `sessions` imports from `app_kit.auth` still work. New adapter users
+can instead construct `PostgresSessionStore(engine)` from `app_kit.postgres`.
+The schema, existing ready sessions, encryption and cookies are unchanged. No
+new database service or storage migration is needed. Use the normal PostgreSQL
+`READ COMMITTED` isolation for the adapter. Keep schema administration out of
+runtime processes.
+
+Do not mix old and new auth workers against a shared store during rollout or
+rollback: the old implementation does not recognize pending claim revisions.
+Stop and drain all workers before switching versions. Before returning to old
+code, discard pending rows (negative revisions) in the app's maintenance step.
+No consumer rollout is part of this change.
+
+Keep verified `picture` server-side. Apps expose their own session-checked image
+route and pass only that local path to the shell; no cross-app cookie or token.
+Keep HTTP client request logging disabled for image URLs.
