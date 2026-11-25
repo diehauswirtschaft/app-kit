@@ -1,6 +1,10 @@
 /* AP-02: one Start-derived header in Svelte, Vue and Jinja. Network context
  * belongs to the network modules, never to this cross-app identity shell. */
 .dhw-header { position: relative; z-index: 10; color: var(--dhw-navy); background: var(--dhw-white); border-bottom: 2px solid var(--dhw-amber); font-family: var(--dhw-font); line-height: 1.55; }
+/* The brand scrolls away; only the module strip stays at the viewport edge. */
+.dhw-header[data-dhw-sticky-tabs][data-dhw-sticky-ready] { position: sticky; top: calc(-1 * var(--dhw-sticky-brand-height)); }
+/* Keep focused brand/account controls visible even when tabbing backwards. */
+.dhw-header[data-dhw-sticky-tabs][data-dhw-sticky-ready]:has(.dhw-header-inner :focus-visible) { top: 0; }
 .dhw-header [hidden] { display: none !important; }
 /* The desktop back control occupies the existing left gutter, not a new
  * flex column. The brand therefore has the same x-position with/without it. */
@@ -32,12 +36,40 @@
 .dhw-back:hover { background: var(--dhw-soft); }
 .dhw-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; min-width: 0; margin-inline-start: auto; }
 .dhw-header a { color: inherit; text-underline-offset: .2em; }
+/* Keep overflow and focus within the strip at narrow widths (AP-02/WCAG 2.4.11). */
+.dhw-header:has(.dhw-module-nav-frame) { border-bottom: 0; }
+.dhw-module-nav-frame { position: relative; box-sizing: border-box; background: linear-gradient(to top, var(--dhw-amber) 2px, transparent 2px); }
+.dhw-module-nav-frame[data-dhw-overflow] { padding-inline: 1.5rem; }
+/* Dedicated gutters keep the scroll cues away from link hit targets and focus. */
+.dhw-module-nav-frame[data-dhw-more-left]::before,
+.dhw-module-nav-frame[data-dhw-more-right]::after { content: ''; position: absolute; box-sizing: border-box; top: calc(50% - .35rem); width: .7rem; height: .7rem; border: solid currentColor; border-width: 0 2.5px 2.5px 0; pointer-events: none; }
+.dhw-module-nav-frame[data-dhw-more-left]::before { left: .55rem; transform: rotate(135deg); }
+.dhw-module-nav-frame[data-dhw-more-right]::after { right: .55rem; transform: rotate(-45deg); }
+.dhw-header .dhw-module-nav { position: relative; box-sizing: border-box; flex-wrap: nowrap; align-items: stretch; gap: .6rem; overflow-x: auto; width: 100%; max-width: 90rem; margin-inline: auto; padding: 0 .65rem; }
+.dhw-module-nav a { display: inline-flex; align-items: center; flex: 0 0 auto; max-width: 100%; overflow-wrap: anywhere; min-height: 44px; padding-inline: .65rem; text-decoration: none; }
+.dhw-module-nav a { position: relative; }
+.dhw-module-nav a + a::before { content: ''; position: absolute; inset-inline-start: -.3rem; inset-block: 30%; width: 1px; background: color-mix(in srgb, var(--dhw-aqua) 68%, currentColor); opacity: .65; pointer-events: none; }
+.dhw-module-nav a[aria-current] { font-weight: 700; background: var(--dhw-surface); border-radius: .45rem .45rem 0 0; }
+@media (forced-colors: active) { .dhw-module-nav a[aria-current] { text-decoration: underline; } }
+.dhw-header .dhw-module-nav a:focus-visible { outline-offset: -3px; }
+.dhw-module-nav-frame[data-dhw-more-ready] { padding-inline: 0; }
+.dhw-module-nav-frame[data-dhw-more-ready]::before, .dhw-module-nav-frame[data-dhw-more-ready]::after { display: none; }
+.dhw-header [data-dhw-more-ready] .dhw-module-nav { overflow: visible; }
+.dhw-module-nav a[data-dhw-compact] > span:first-child { display: none; }
+.dhw-nav-short { display: none; }
+.dhw-module-nav a[data-dhw-compact] > .dhw-nav-short { display: inline; }
+.dhw-header .dhw-module-nav .dhw-more-toggle:not(:disabled) { align-self: center; background: transparent; color: inherit; flex: 0 0 44px; padding: 0; border: 0; border-inline: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 0; font-size: 1.3rem; }
+.dhw-header .dhw-module-nav .dhw-more-toggle:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.dhw-more-panel { position: absolute; z-index: 1; inset-inline-end: .65rem; top: 100%; box-sizing: border-box; min-width: min(12rem, calc(100% - 1.3rem)); max-width: calc(100% - 1.3rem); padding: .35rem; color: var(--dhw-fg); background: var(--dhw-bg); border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); box-shadow: var(--dhw-menu-shadow); }
+.dhw-more-panel a { display: flex; min-height: 44px; align-items: center; padding: .35rem .65rem; overflow-wrap: anywhere; }
+.dhw-nav-lock { max-width: 90rem; margin: 0 auto; padding: .25rem 1rem; }
 .dhw-header form { margin: 0; }
 .dhw-profile { position: relative; }
 .dhw-profile > summary { box-sizing: border-box; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; border: 1px solid currentColor; border-radius: 50%; color: var(--dhw-navy); background: var(--dhw-aqua); cursor: pointer; font-size: .9rem; font-weight: 700; list-style: none; }
 .dhw-profile > summary::-webkit-details-marker { display: none; }
 .dhw-avatar-image { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.dhw-profile-panel { box-sizing: border-box; position: absolute; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: var(--dhw-menu-shadow); }
+/* The profile menu must paint above the later, positioned module strip. */
+.dhw-profile-panel { box-sizing: border-box; position: absolute; z-index: 2; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: var(--dhw-menu-shadow); }
 .dhw-header-user { display: block; margin: 0 0 .75rem; overflow-wrap: anywhere; font-weight: 700; }
 .dhw-profile-panel a { display: flex; align-items: center; min-height: 44px; margin-inline: -.5rem; padding: .5rem; border-radius: calc(var(--dhw-radius) / 1.5); text-decoration: none; transition: background-color 120ms ease-out; }
 /* AP-02: menu rows get an Aqua-tinted hover in both schemes; current page is bold only. */

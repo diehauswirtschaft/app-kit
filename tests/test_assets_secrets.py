@@ -80,9 +80,12 @@ def test_jinja_brand_preserves_escaping_and_independent_local_logout():
     env = Environment(
         loader=PackageLoader("app_kit", "templates"), autoescape=select_autoescape(["html"])
     )
+    from app_kit.header_navigation import header_navigation
+
     env.globals["user_initials"] = user_initials
     markup = env.get_template("header.html").render(
         app_title="<script>unsafe</script>",
+        header_nav=header_navigation("start", "unsafe", "/"),
         user=SimpleNamespace(name="<img onerror=unsafe>"),
         csrf=secrets.token_urlsafe(32),
     )
@@ -118,7 +121,8 @@ def test_app_label_metrics_and_optional_portal_wordmark_stay_shared():
 def test_header_assets_and_initials_are_bounded_public_helpers():
     assert user_initials("  Erika Musterfrau ") == "EM"
     assert user_initials("") == "M"
-    assert b"capturePortalEntry" in shell_asset("shell.js")
+    assert b"cleanLegacyPortalEntry" in shell_asset("shell.js")
+    assert b"capturePortalEntry" not in shell_asset("shell.js")
     assert b"OIDC" in shell_asset("navigation.js")
     for name in ("../auth.py", "session-key", "navigation.d.ts"):
         with pytest.raises(ValueError):
