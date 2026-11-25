@@ -85,8 +85,11 @@ Runtime must not own DDL rights. See [session storage and pilot compatibility](d
 
 The default suite runs RSA/OIDC and storage-contract tests with a test-only
 in-memory store. The PostgreSQL runner repeats those tests against the actual
-adapter in random isolated schemas, using a private runtime-generated URL file.
-Never point acceptance at a live app database.
+adapter in random isolated schemas. The runner passes one-use credentials
+via process environments rather than credential files or command arguments.
+Use a trusted local container runtime or an isolated CI runner; privileged
+runtime operators can inspect the disposable container environment. Never
+point acceptance at a live app database.
 
 Design source: `budgetprioritaeten` design commit `da1a59a6b589ba41ebc02f7027a092ab40a54098`; comparison with portal `services/bff/src/app.css`. These are design inputs, not a license grant for fonts or approval to alter the portal. The shared palette is a pilot implementation, not a claim that every derived web rule appears in the print styleguide.
 

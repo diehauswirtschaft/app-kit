@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -53,10 +53,11 @@ class TestMemoryStore:
             del self.sessions[scope, key]
 
 
-DATABASE_FILE = os.environ.get("PILOT_DATABASE_URL_FILE")
+# Read only in this test process; do not propagate to its subprocesses.
+DATABASE_URL = os.environ.pop("APP_KIT_TEST_DATABASE_URL", None)
 
 
-@pytest.fixture(params=["memory", "postgres"] if DATABASE_FILE else ["memory"])
+@pytest.fixture(params=["memory", "postgres"] if DATABASE_URL else ["memory"])
 async def store_args(request):
     if request.param == "memory":
         yield {"store": TestMemoryStore()}
@@ -67,9 +68,19 @@ async def store_args(request):
 
     from app_kit.auth import metadata
 
-    url = Path(DATABASE_FILE).read_text().strip()
+    target = urlsplit(DATABASE_URL)
+    # AP-01: schema setup/cleanup must never target a remote service.
+    if (
+        target.scheme != "postgresql+psycopg"
+        or target.hostname != "127.0.0.1"
+        or target.username != "pilot"
+        or target.path != "/pilot"
+        or target.query
+        or target.fragment
+    ):
+        pytest.fail("Expected an isolated loopback PostgreSQL test database")
     schema = "kit_pilot_" + uuid.uuid4().hex
-    admin = create_engine(url, hide_parameters=True)
+    admin = create_engine(DATABASE_URL, hide_parameters=True)
     try:
         with admin.begin() as db:
             # Generated identifier only; never shared/prod schema deletion.
@@ -78,7 +89,7 @@ async def store_args(request):
             args = {
                 "options": f"-c search_path={schema} -c statement_timeout=5000 -c lock_timeout=3000"
             }
-            engine = create_async_engine(url, hide_parameters=True, connect_args=args)
+            engine = create_async_engine(DATABASE_URL, hide_parameters=True, connect_args=args)
             try:
                 async with engine.begin() as db:
                     await db.run_sync(metadata.create_all)
