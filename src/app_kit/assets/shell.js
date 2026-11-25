@@ -1,27 +1,30 @@
-import { capturePortalEntry, installHeaderInteractions } from './navigation.js'
+import { cleanLegacyPortalEntry, guardHeaderExit, installHeaderInteractions } from './navigation.js'
 
+let dirty = false
 const header = document.querySelector('.dhw-header')
 if (header) {
-  let storage = null
-  try { storage = window.sessionStorage } catch { /* UI preference unavailable, not an auth failure. */ }
-  const url = new URL(window.location.href)
-  const target = capturePortalEntry(url, storage)
-  if (url.searchParams.has('entry')) {
-    url.searchParams.delete('entry')
-    window.history.replaceState(window.history.state, '', url)
-  }
-  const back = header.querySelector('[data-dhw-portal-back]')
-  if (back && target) { back.href = target; back.hidden = false }
-  // AP-02: the logo is independent of Back, but returns to the same fixed
-  // portal when an entry hint exists; standalone uses the production portal.
-  const portal = header.querySelector('[data-dhw-portal-home]')
-  if (portal && target) portal.href = target
+  cleanLegacyPortalEntry(window.location, window.history)
   installHeaderInteractions(header)
+  const { dhwGuardMode: mode, dhwGuardMessage: message } = header.dataset
+  if (mode === 'block' || mode === 'confirm') {
+    const guard = { mode, message }
+    // Run before the document's dirty-editor handler; a rejected Kit exit must
+    // never reach the logout form or the app's ordinary navigation (AP-02).
+    const kitGuard = event => {
+      if (guardHeaderExit(event, guard) && dirty && event.type === 'submit') dirty = false
+    }
+    document.addEventListener('click', event => {
+      if (header.contains(event.target) && event.target.closest?.('a[href], a[role="link"]') &&
+          (mode === 'block' || (!dirty && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey))) kitGuard(event)
+    }, true)
+    document.addEventListener('submit', event => {
+      if (header.contains(event.target) && (mode === 'block' || !dirty)) kitGuard(event)
+    }, true)
+  }
 }
 
 // AP-02: replacing the old links must not discard unsubmitted protocol text.
 // The marker is present only on editor forms, never on logout/publication.
-let dirty = false
 for (const form of document.querySelectorAll('form[data-dhw-dirty]')) {
   form.addEventListener('input', () => { dirty = true })
   form.addEventListener('submit', () => { dirty = false })
