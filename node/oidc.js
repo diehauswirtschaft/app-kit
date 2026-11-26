@@ -307,7 +307,9 @@ export class OIDC {
       throw new AuthUnavailable('Identity provider unavailable')
     }
     if (response.status !== 200) {
-      if (rejectClientError && response.status >= 400 && response.status < 500) {
+      // Only 400/401 indicate rejected credentials or revoked/rotated tokens;
+      // 429/5xx are transient availability failures and must not log users out.
+      if (rejectClientError && (response.status === 400 || response.status === 401)) {
         throw new AuthError('Identity provider rejected token request')
       }
       throw new AuthUnavailable('Identity provider unavailable')
@@ -443,6 +445,14 @@ export class OIDC {
     this._providerInFlight = load
     try {
       return await load
+    } catch (error) {
+      // During a brief IdP outage after the 300s cache TTL, keep verifying
+      // locally valid access tokens with the previously validated JWKS rather
+      // than failing every request with 503 (never fall back on forced rotation).
+      if (!force && error instanceof AuthUnavailable && this._cache !== null) {
+        return this._cache
+      }
+      throw error
     } finally {
       if (this._providerInFlight === load) {
         this._providerInFlight = null

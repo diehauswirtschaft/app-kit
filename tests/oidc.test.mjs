@@ -556,6 +556,10 @@ test('transient IdP outage preserves valid sessions on discovery and refresh (#2
   fx.auth._cacheUntil = 0
   const realFetch = fx.auth.fetch
   fx.auth.fetch = async () => new Response('', { status: 503 })
+  // Cached JWKS keeps locally valid access tokens working during a brief outage.
+  assert.ok(await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })))
+  // Without any cached JWKS (cold worker), 503 raises AuthUnavailable without deleting the session.
+  fx.auth._cache = null
   await assert.rejects(
     () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
     AuthUnavailable,
@@ -564,9 +568,19 @@ test('transient IdP outage preserves valid sessions on discovery and refresh (#2
   const recovered = await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie }))
   assert.ok(recovered)
 
-  // Transient 503 and network failure during refresh restore the pre-refresh session.
+  // Transient 503, 429 rate-limit and network failure during refresh restore the pre-refresh session.
   provider.state.now += 301
   fx.auth.fetch = async () => new Response('', { status: 503 })
+  await assert.rejects(
+    () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
+    AuthUnavailable,
+  )
+  fx.auth.fetch = async (url, init) => {
+    if (String(url).endsWith('/token')) {
+      return new Response('', { status: 429 })
+    }
+    return realFetch(url, init)
+  }
   await assert.rejects(
     () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
     AuthUnavailable,
