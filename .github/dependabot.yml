@@ -12,6 +12,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # CodeQL init and analyze exchange version-specific state in the same job.
+    groups:
+      codeql-actions:
+        applies-to: version-updates
+        patterns:
+          - "github/codeql-action/*"
   - package-ecosystem: npm
     directory: /
     schedule:
