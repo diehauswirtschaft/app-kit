@@ -130,7 +130,15 @@ Use same-origin paths without query strings or fragments for additional links
 and avatar images. The strip appears with at least two valid tabs (up to five).
 Set `stickyTabs: false` (`sticky_tabs=False` in Python) to disable sticky tabs.
 
-## Use Python OIDC (optional)
+## Optional: Server-side OIDC (Python and Node / SvelteKit)
+
+Standalone apps use one confidential Keycloak client per environment (see
+[deploy/keycloak-web-client.template.json](deploy/keycloak-web-client.template.json)).
+Tokens stay on the server; the browser receives an opaque host-bound session
+cookie. The app provides its own `SessionStore` and enforces route permissions.
+Neither the Python nor the Node module requires a specific database.
+
+### Python backend
 
 ```python
 from app_kit.auth import OIDC
@@ -138,12 +146,31 @@ from app_kit.auth import OIDC
 auth = OIDC(settings, store=session_store)
 ```
 
-Provide HTTPS issuer/origin, your own client and audience, explicit admission
-roles, and independent client secret and session key files. Tokens remain on
-the server; the browser gets an opaque host-bound session cookie. The app
-provides the `SessionStore` and enforces its own route permissions. The base
-package requires no database. See the [session storage guide](docs/session-storage-migration.md)
-for adapter requirements and the optional PostgreSQL adapter.
+### Node / SvelteKit backend
+
+```ts
+import { OIDC, type SessionStore } from '@diehauswirtschaft/app-kit/oidc';
+
+export const auth = new OIDC(
+  {
+    issuer: 'https://auth.diehauswirtschaft.at/realms/dhw-dev',
+    clientId: 'dhw-example-web',
+    audience: 'dhw-example-web',
+    origin: 'https://example.dhw.wien',
+    clientSecretFile: '/run/secrets/oidc-client-secret',
+    sessionKeyFile: '/run/secrets/session-key', // 32-byte base64url secret
+    admissionRoles: ['dhw-member-role'],
+  },
+  { store: sessionStore satisfies SessionStore },
+);
+```
+
+Wire `/auth/login` to `auth.loginResponse()`, `/auth/callback` to
+`auth.callbackResponse(request)`, `hooks.server.ts` to
+`auth.authenticate(request)` and `POST /auth/logout` to
+`auth.logoutResponse(request, { csrfToken, expectedCsrf })`. See the
+[session storage guide](docs/session-storage-migration.md) for store atomicity
+rules and the optional Python PostgreSQL adapter.
 
 ## Local checks
 
@@ -151,6 +178,7 @@ for adapter requirements and the optional PostgreSQL adapter.
 uv sync --locked --python 3.13
 uv run --locked ruff check src tests scripts
 uv run --locked pytest -q
+npm ci --ignore-scripts
 node --test tests/*.test.mjs
 ```
 
