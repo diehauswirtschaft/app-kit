@@ -14,7 +14,9 @@ jobs:
       - run: uv sync --locked --python 3.13
       - run: uv run ruff check src tests scripts
       - run: uv run --locked pytest -q
+      - run: npm ci --ignore-scripts
       - run: node --test tests/*.test.mjs
+      - run: npm audit --omit=dev
       - run: uv build
       - name: Cold import from the wheel without database dependencies
         run: |
