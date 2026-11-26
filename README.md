@@ -16,7 +16,7 @@ application logic or storage migration is authorized by this pilot.
 
 ## Contents
 
-- **Design:** framework-neutral tokens, system light/dark mode, flat Budget-inspired light appearance, high-contrast portal-inspired dark palette. Amber primary actions, square controls, visible focus, reduced motion and print support.
+- **Design:** framework-neutral tokens, Start-inspired light and dark palettes, moderate control radii, visible focus, reduced motion and print support.
 - **Headers:** Svelte, Vue and Jinja use the same styles and artwork. The wordmark always links to the configured portal; the app label links to the app home. Identity and logout remain local to the app. Images use a same-origin path and fall back to initials.
 
 ### Header navigation (AP-02)
@@ -24,10 +24,13 @@ application logic or storage migration is authorized by this pilot.
 - Validate the deployment's `start` or `staging` target at bootstrap (`requirePortalHref` in JS, `require_portal_href` in Python). Pass the target as `portalTarget` in Svelte/Vue, or pass `header_nav = header_navigation(target, title, pathname, ...)` to the Jinja template. Replacing an older header pin requires updating this call site; do not derive the target from a request or fall back to production. `entry` is removed from mounted pages but not used by the header. Legacy helper exports remain for Start during the coordinated cutover.
 - `moduleNav` / `module_nav` and `avatarLinks` / `avatar_links` are independent optional lists of `{ label, href, match? }`. A module strip takes at most five links and is hidden with fewer than two. Menus may exist without a module strip. `helpHref` / `help_href` adds “Hilfe zu …”. Only local paths, without query or fragment. Pass the current pathname for active-link marking, including on details. The caller still controls roles and authorizes every destination.
 - Module overflow uses the shared More menu; apps cannot choose the overflow mode. The More menu keeps the active area and, when they fit together, the first area in the strip. Supply a full `label` and optionally a `shortLabel` (`short_label` in Python) for a label that needs less space. The menu always shows full labels. Extremely narrow layouts and browsers without JS use the scroll strip instead of hiding links. A portal-wide preference may select the mode in a future release; this version does not store or accept one.
+- Tabs are ordinary links with `aria-current` on the active destination. The consumer decides how to route: SvelteKit can intercept same-app links; a server-rendered Jinja app normally loads a new document. The header does not install a router.
 - Only the module strip stays at the top on scroll by default. Set `stickyTabs: false` (`sticky_tabs=False` in Python) to let the whole header scroll away. A header without a module strip never sticks. Render the header in the page's scrolling container, not inside a wrapper that ends immediately after the header; a mount-only wrapper may use `display: contents`.
 - `guard: { mode: 'block' | 'confirm', message }` is controlled by the consumer. Blocking removes link destinations and disables logout; confirmation precedes ordinary navigation or logout. The Vue recorder flag and Jinja dirty-editor guard remain. App-specific navigation outside the kit and browser exit protection remain the consumer's responsibility.
 
-- **Python SSO:** Authlib OAuth/PKCE + joserfc RS256 validation, confidential Keycloak client, encrypted server-side login/session state in a consumer-supplied store, opaque Secure/HttpOnly/host-bound cookies. Access-token roles only. Issuer/audience/authorized-party/subject/nonce/time checks, single-use login state, atomic refresh claims and fresh role evaluation. Client Credentials validation supports separately allowlisted read clients/audiences. Mixed public JWKS (e.g. Keycloak RSA-OAEP encryption + RS256 signing keys) are filtered to appropriate RS256 verification keys; encryption kids cannot verify JWTs. Private/ambiguous/malformed key sets remain rejected.
+### Python SSO (AP-01)
+
+- **OIDC:** Authlib OAuth/PKCE + joserfc RS256 validation, confidential Keycloak client, encrypted server-side login/session state in a consumer-supplied store, opaque Secure/HttpOnly/host-bound cookies. Access-token roles only. Issuer/audience/authorized-party/subject/nonce/time checks, single-use login state, atomic refresh claims and fresh role evaluation. Client Credentials validation supports separately allowlisted read clients/audiences. Mixed public JWKS (e.g. Keycloak RSA-OAEP encryption + RS256 signing keys) are filtered to appropriate RS256 verification keys; encryption kids cannot verify JWTs. Private/ambiguous/malformed key sets remain rejected.
 
 This is not a generic OAuth provider abstraction, a global permission service, a Keycloak administration tool or a dynamic microfrontend loader. Global back-channel logout is not yet implemented. A cloneable app template follows practical pilot acceptance, not the reverse.
 
@@ -35,7 +38,7 @@ This is not a generic OAuth provider abstraction, a global permission service, a
 
 Pin an reviewed immutable commit (or a later reviewed release) in the consumer lockfile. No runtime CDN imports, shared cookies or copied authentication implementations.
 
-Python:
+### Python / Jinja
 
 ```python
 from app_kit import design_css
@@ -47,9 +50,39 @@ def create_auth(settings, store: SessionStore) -> OIDC:
     return OIDC(settings, store=store)
 ```
 
-`design_css()` returns the combined fixed CSS asset; serve it locally. For Jinja use `PackageLoader('app_kit', 'templates')` and include `header.html` with `app_title`, `user`, and `csrf` from the local authenticated request. Register `user_initials` from `app_kit` in the Jinja environment globals. Serve the packaged `brand_logo_svg()` bytes at `/assets/app-kit/logo.svg` and `brand_logo_svg(dark=True)` at `/assets/app-kit/logo-dark.svg`, both `image/svg+xml`. For the compact mobile header also serve `brand_logo_svg(signet=True)` at `/assets/app-kit/signet.svg` and `brand_logo_svg(signet=True, dark=True)` at `/assets/app-kit/signet-dark.svg`. These are fixed public library assets, not paths supplied by callers. The Vue wrapper imports these same SVG files as bundled local URLs; no CDN or font request is required. Serve `shell_asset('shell.js')` and `shell_asset('navigation.js')` at `/assets/app-kit/shell.js` and `/assets/app-kit/navigation.js` with JavaScript MIME. `header.html` includes the external module under a self-only script CSP; no inline script is required. Editor forms opt into the dirty guard with `data-dhw-dirty`.
+`design_css()` returns the combined fixed CSS asset; serve it locally. For Jinja use `PackageLoader('app_kit', 'templates')` and include `header.html` with `app_title`, `header_nav` from the app's `header_navigation(...)` call, and `user` and `csrf` from the local authenticated request. Register `user_initials` from `app_kit` in the Jinja environment globals. Serve the packaged `brand_logo_svg()` bytes at `/assets/app-kit/logo.svg` and `brand_logo_svg(dark=True)` at `/assets/app-kit/logo-dark.svg`, both `image/svg+xml`. For the compact mobile header also serve `brand_logo_svg(signet=True)` at `/assets/app-kit/signet.svg` and `brand_logo_svg(signet=True, dark=True)` at `/assets/app-kit/signet-dark.svg`. These are fixed public library assets, not paths supplied by callers. The Svelte and Vue wrappers import these same SVG files as bundled local URLs; no CDN or font request is required. Serve `shell_asset('shell.js')` and `shell_asset('navigation.js')` at `/assets/app-kit/shell.js` and `/assets/app-kit/navigation.js` with JavaScript MIME. `header.html` includes the external module under a self-only script CSP; no inline script is required. Editor forms opt into the dirty guard with `data-dhw-dirty`.
 
-Vue:
+### Svelte 5
+
+Import the shared styles once, for example in your root layout. This example
+expects `portalTarget` from validated deployment configuration and `pathname`
+from the app's current route. In SvelteKit, pass `page.url.pathname` from
+`$app/state` so the active tab updates on client-side navigation.
+
+```svelte
+<script lang="ts">
+  import '@diehauswirtschaft/app-kit/tokens.css';
+  import '@diehauswirtschaft/app-kit/header.css';
+  import AppHeader from '@diehauswirtschaft/app-kit/svelte/AppHeader.svelte';
+  import type { ModuleNavItem, PortalTarget } from '@diehauswirtschaft/app-kit/navigation';
+
+  let { portalTarget, pathname }: { portalTarget: PortalTarget; pathname: string } = $props();
+
+  const moduleNav: ModuleNavItem[] = [
+    { label: 'Übersicht', href: '/uebersicht' },
+    { label: 'Dokumente', href: '/dokumente' },
+  ];
+</script>
+
+<AppHeader title="Beispiel-App" {portalTarget} {pathname} {moduleNav} />
+```
+
+Use destinations that exist in your app. This example only renders navigation.
+If you enable the profile menu with `authenticated`, derive the identity from
+server session data and provide the app's `/profil` page and CSRF-protected
+`POST /auth/logout` endpoint.
+
+### Vue 3
 
 ```js
 import '@diehauswirtschaft/app-kit/tokens.css'
@@ -79,7 +112,12 @@ Runtime must not own DDL rights. See [session storage and pilot compatibility](d
 
 ## Development
 
-`uv sync --locked --python 3.13`; `uv run ruff check src tests`; `uv run pytest`.
+```sh
+uv sync --locked --python 3.13
+uv run --locked ruff check src tests scripts
+uv run --locked pytest -q
+node --test tests/*.test.mjs
+```
 
 `uv run --locked --extra postgres python scripts/test_postgres.py -q` builds the pinned, hardened PostgreSQL recipe under `scripts/postgres/`, runs the complete suite against a loopback-only ephemeral database and cleans up its own container. No named data volumes or pre-existing DB are used. The original upstream candidate is not accepted as a deployment image: its unused gosu binary and two vulnerable library packages required actual removal/upgrades, not advisory ignores.
 
