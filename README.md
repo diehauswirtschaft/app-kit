@@ -134,6 +134,11 @@ Set `stickyTabs: false` (`sticky_tabs=False` in Python) to disable sticky tabs.
 
 Standalone apps use one confidential Keycloak client per environment (see
 [deploy/keycloak-web-client.template.json](deploy/keycloak-web-client.template.json)).
+Because the template sets `fullScopeAllowed: false`, assign the app's admission
+role(s) (e.g. `dhw-member-role`) under **Clients → `<client>` → Client scopes →
+`<client>-dedicated` → Scope → Assign role** and verify `realm_access.roles` via
+**Evaluate** in `dhw-dev`; otherwise `realm_access.roles` stays empty and login
+rejects all users.
 Tokens stay on the server; the browser receives an opaque host-bound session
 cookie. The app provides its own `SessionStore` and enforces route permissions.
 Neither the Python nor the Node module requires a specific database.

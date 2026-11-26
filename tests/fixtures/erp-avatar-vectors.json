@@ -1,0 +1,19 @@
+{
+  "valid": [
+    "https://erp.diehauswirtschaft.at/files/portrait.png",
+    "https://erp.diehauswirtschaft.at/files/avatar-2026.webp"
+  ],
+  "invalid": [
+    null,
+    "",
+    "https://erp.diehauswirtschaft.at/files/portrait.png?x=1",
+    "https://erp.diehauswirtschaft.at/files/portrait.png#frag",
+    "http://erp.diehauswirtschaft.at/files/portrait.png",
+    "https://erp.diehauswirtschaft.at.invalid/files/portrait.png",
+    "https://erp.diehauswirtschaft.at/api/portrait.png",
+    "https://erp.diehauswirtschaft.at/files/%2e%2e",
+    "https://erp.diehauswirtschaft.at/files/a%2fb.png",
+    "https://erp.diehauswirtschaft.at/files/a%252fb.png",
+    "https://evil.example/files/portrait.png"
+  ]
+}

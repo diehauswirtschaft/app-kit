@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SignJWT, exportJWK, generateKeyPair } from 'jose'
 
+import * as oidcModule from '../node/oidc.js'
+import * as secretsModule from '../node/secrets.js'
 import { AuthError, AuthUnavailable, OIDC, erpPictureUrl } from '../node/oidc.js'
 import { UnsafeSecret, readSecret } from '../node/secrets.js'
 
@@ -482,9 +484,11 @@ test('readSecret rejects symlinks, group/world readable files and missing store 
   symlinkSync(secretPath, linkPath)
   assert.throws(() => readSecret(linkPath), UnsafeSecret)
 
-  assert.equal(erpPictureUrl('https://erp.diehauswirtschaft.at/files/avatar.jpg'), 'https://erp.diehauswirtschaft.at/files/avatar.jpg')
-  assert.equal(erpPictureUrl('https://erp.diehauswirtschaft.at/api/secret'), null)
-  assert.equal(erpPictureUrl('https://evil.example/files/avatar.jpg'), null)
+  const avatarVectors = JSON.parse(
+    readFileSync(new URL('./fixtures/erp-avatar-vectors.json', import.meta.url), 'utf8'),
+  )
+  for (const valid of avatarVectors.valid) assert.equal(erpPictureUrl(valid), valid)
+  for (const invalid of avatarVectors.invalid) assert.equal(erpPictureUrl(invalid), null)
 
   assert.throws(
     () =>
@@ -542,7 +546,134 @@ test('idle expiry, failed refresh claim isolation, callback validation and cross
   assert.equal(await fx.store.getSession(fx.auth.scope, OIDC.digest(sid)), null)
 })
 
-test('Keycloak 1-client template enforces AP-01 defaults without embedded secrets', () => {
+test('transient IdP outage preserves valid sessions on discovery and refresh (#20)', async (t) => {
+  const provider = await createProvider()
+  const fx = makeFixture(provider)
+  t.after(fx.cleanup)
+
+  const { sessionCookie } = await signIn(fx.auth, provider)
+  provider.state.now += 10 // Access token still valid; only discovery cache expired.
+  fx.auth._cacheUntil = 0
+  const realFetch = fx.auth.fetch
+  fx.auth.fetch = async () => new Response('', { status: 503 })
+  // Cached JWKS keeps locally valid access tokens working during a brief outage.
+  assert.ok(await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })))
+  // Without any cached JWKS (cold worker), 503 raises AuthUnavailable without deleting the session.
+  fx.auth._cache = null
+  await assert.rejects(
+    () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
+    AuthUnavailable,
+  )
+  fx.auth.fetch = realFetch
+  const recovered = await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie }))
+  assert.ok(recovered)
+
+  // Transient 503, 429 rate-limit and network failure during refresh restore the pre-refresh session.
+  provider.state.now += 301
+  fx.auth.fetch = async () => new Response('', { status: 503 })
+  await assert.rejects(
+    () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
+    AuthUnavailable,
+  )
+  fx.auth.fetch = async (url, init) => {
+    if (String(url).endsWith('/token')) {
+      return new Response('', { status: 429 })
+    }
+    return realFetch(url, init)
+  }
+  await assert.rejects(
+    () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
+    AuthUnavailable,
+  )
+  fx.auth.fetch = async () => {
+    throw new TypeError('network down')
+  }
+  await assert.rejects(
+    () => fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })),
+    AuthUnavailable,
+  )
+  fx.auth.fetch = realFetch
+  const afterRefreshRecovery = await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie }))
+  assert.ok(afterRefreshRecovery)
+
+  // Logout during a failing refresh still wins: rollback CAS must never revive the session.
+  let entered
+  const enteredPromise = new Promise((resolve) => {
+    entered = resolve
+  })
+  let resume
+  const pause = new Promise((resolve) => {
+    resume = resolve
+  })
+  provider.state.now += 301
+  fx.auth.fetch = async (url, init) => {
+    if (String(url).endsWith('/token')) {
+      entered()
+      await pause
+      return new Response('', { status: 503 })
+    }
+    return realFetch(url, init)
+  }
+  const failingRefresh = fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie }))
+  await enteredPromise
+  await fx.auth.logout(
+    makeRequest('/auth/logout', {
+      cookie: sessionCookie,
+      headers: { origin: 'https://app.example' },
+    }),
+    { csrfToken: afterRefreshRecovery.csrf, expectedCsrf: afterRefreshRecovery.csrf },
+  )
+  resume()
+  await assert.rejects(() => failingRefresh, AuthUnavailable)
+  fx.auth.fetch = realFetch
+  assert.equal(await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })), null)
+
+  // Explicit 400 from token endpoint (revoked/rotated refresh token) ends the session.
+  const second = await signIn(fx.auth, provider)
+  provider.state.now += 301
+  fx.auth.fetch = async (url, init) => {
+    if (String(url).endsWith('/token')) {
+      return Response.json({ error: 'invalid_grant' }, { status: 400 })
+    }
+    return realFetch(url, init)
+  }
+  assert.equal(await fx.auth.authenticate(makeRequest('/', { cookie: second.sessionCookie })), null)
+  const sid = second.sessionCookie.split('=', 2)[1]
+  assert.equal(await fx.store.getSession(fx.auth.scope, OIDC.digest(sid)), null)
+})
+
+test('abandoned refresh claim expires after 30s so user can re-login cleanly (#20)', async (t) => {
+  const provider = await createProvider()
+  const fx = makeFixture(provider)
+  t.after(fx.cleanup)
+
+  const { sessionCookie } = await signIn(fx.auth, provider)
+  const sid = sessionCookie.split('=', 2)[1]
+  const key = OIDC.digest(sid)
+  const original = await fx.store.getSession(fx.auth.scope, key)
+  // Simulate a worker crashing immediately after committing a refresh claim.
+  await fx.store.replaceSession(fx.auth.scope, key, original.revision, {
+    expires: provider.state.now + 30,
+    absolute: original.absolute,
+    revision: -(original.revision + 1),
+    payload: original.payload,
+  })
+  provider.state.now += 31
+  assert.equal(await fx.auth.authenticate(makeRequest('/', { cookie: sessionCookie })), null)
+})
+
+test('Keycloak 1-client template enforces AP-01 defaults and d.ts exports match runtime', () => {
+  for (const [dtsPath, runtime] of [
+    ['../node/oidc.d.ts', oidcModule],
+    ['../node/secrets.d.ts', secretsModule],
+  ]) {
+    const dts = readFileSync(new URL(dtsPath, import.meta.url), 'utf8')
+    const declared = [...dts.matchAll(/^export (?:class|function) (\w+)/gm)].map((m) => m[1])
+    assert.ok(declared.length > 0)
+    for (const name of declared) {
+      assert.equal(typeof runtime[name], 'function', `Missing runtime export ${name} from ${dtsPath}`)
+    }
+  }
   const template = JSON.parse(
     readFileSync(new URL('../deploy/keycloak-web-client.template.json', import.meta.url), 'utf8'),
   )

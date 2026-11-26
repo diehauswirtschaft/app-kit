@@ -16,6 +16,14 @@ const OPAQUE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
 const SESSION_KEY_RE = /^[A-Za-z0-9_-]{43}=?$/
 const MAX_JSON_BYTES = 131072
 const MAX_TOKEN_LENGTH = 32768
+// AP-01 defaults aligned with Python src/app_kit/auth.py: bounded per-app store
+// capacity, explicit OIDC scopes, 30s login/refresh clock tolerance (ADR-0003's
+// 10s iat cap applies to BFF token exchange), and 30s cap on an in-flight
+// refresh claim so a crashed worker never stalls a session for the full idle TTL.
+const STORE_CAPACITY_LIMIT = 1000
+const LOGIN_SCOPE = 'openid profile roles'
+const CLOCK_TOLERANCE_SECONDS = 30
+const REFRESH_CLAIM_SECONDS = 30
 const PRIVATE_JWK_FIELDS = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth', 'k']
 const FORBIDDEN_JWT_HEADERS = ['jku', 'jwk', 'x5u', 'crit']
 const ALLOWED_CALLBACK_PARAMS = new Set(['code', 'state', 'session_state', 'iss'])
@@ -281,43 +289,58 @@ export class OIDC {
     }
   }
 
-  async _boundedJson(url, init = {}) {
+  async _boundedJson(url, init = {}, { rejectClientError = false } = {}) {
     // AP-01/ASI-023: fixed verified issuer endpoints; never follow redirects.
     const signal = AbortSignal.timeout(8000)
-    const response = await this.fetch(url, {
-      ...init,
-      redirect: 'manual',
-      signal,
-      headers: {
-        'Accept-Encoding': 'identity',
-        ...(init.headers ?? {}),
-      },
-    })
+    let response
+    try {
+      response = await this.fetch(url, {
+        ...init,
+        redirect: 'manual',
+        signal,
+        headers: {
+          'Accept-Encoding': 'identity',
+          ...(init.headers ?? {}),
+        },
+      })
+    } catch {
+      throw new AuthUnavailable('Identity provider unavailable')
+    }
     if (response.status !== 200) {
+      // Only 400/401 indicate rejected credentials or revoked/rotated tokens;
+      // 429/5xx are transient availability failures and must not log users out.
+      if (rejectClientError && (response.status === 400 || response.status === 401)) {
+        throw new AuthError('Identity provider rejected token request')
+      }
       throw new AuthUnavailable('Identity provider unavailable')
     }
     let bytes
-    if (response.body && typeof response.body.getReader === 'function') {
-      const reader = response.body.getReader()
-      const chunks = []
-      let total = 0
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        total += value.byteLength
-        if (total > MAX_JSON_BYTES) {
-          await reader.cancel().catch(() => {})
+    try {
+      if (response.body && typeof response.body.getReader === 'function') {
+        const reader = response.body.getReader()
+        const chunks = []
+        let total = 0
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          total += value.byteLength
+          if (total > MAX_JSON_BYTES) {
+            await reader.cancel().catch(() => {})
+            throw new AuthUnavailable('Identity response too large')
+          }
+          chunks.push(value)
+        }
+        bytes = Buffer.concat(chunks, total)
+      } else {
+        const buffer = new Uint8Array(await response.arrayBuffer())
+        if (buffer.byteLength > MAX_JSON_BYTES) {
           throw new AuthUnavailable('Identity response too large')
         }
-        chunks.push(value)
+        bytes = buffer
       }
-      bytes = Buffer.concat(chunks, total)
-    } else {
-      const buffer = new Uint8Array(await response.arrayBuffer())
-      if (buffer.byteLength > MAX_JSON_BYTES) {
-        throw new AuthUnavailable('Identity response too large')
-      }
-      bytes = buffer
+    } catch (error) {
+      if (error instanceof AuthError) throw error
+      throw new AuthUnavailable('Identity provider unavailable')
     }
     let parsed
     try {
@@ -422,6 +445,14 @@ export class OIDC {
     this._providerInFlight = load
     try {
       return await load
+    } catch (error) {
+      // During a brief IdP outage after the 300s cache TTL, keep verifying
+      // locally valid access tokens with the previously validated JWKS rather
+      // than failing every request with 503 (never fall back on forced rotation).
+      if (!force && error instanceof AuthUnavailable && this._cache !== null) {
+        return this._cache
+      }
+      throw error
     } finally {
       if (this._providerInFlight === load) {
         this._providerInFlight = null
@@ -472,7 +503,7 @@ export class OIDC {
         algorithms: ['RS256'],
         issuer: this.settings.issuer,
         audience,
-        clockTolerance: 30,
+        clockTolerance: CLOCK_TOLERANCE_SECONDS,
         currentDate: new Date(now * 1000),
       })
       for (const field of ['exp', 'iat', 'nbf']) {
@@ -483,7 +514,7 @@ export class OIDC {
       if (
         typeof payload.exp !== 'number' ||
         typeof payload.iat !== 'number' ||
-        payload.iat > now + 30 ||
+        payload.iat > now + CLOCK_TOLERANCE_SECONDS ||
         payload.exp <= payload.iat ||
         typeof payload.sub !== 'string' ||
         payload.sub.length < 1 ||
@@ -583,7 +614,7 @@ export class OIDC {
       this.scope,
       OIDC.digest(state),
       loginState,
-      { now, limit: 1000 },
+      { now, limit: STORE_CAPACITY_LIMIT },
     )
     if (!stored) {
       throw new AuthUnavailable('Login capacity exhausted')
@@ -592,7 +623,7 @@ export class OIDC {
     authUrl.searchParams.set('response_type', 'code')
     authUrl.searchParams.set('client_id', this.settings.clientId)
     authUrl.searchParams.set('redirect_uri', `${this.settings.origin}/auth/callback`)
-    authUrl.searchParams.set('scope', 'openid profile roles')
+    authUrl.searchParams.set('scope', LOGIN_SCOPE)
     authUrl.searchParams.set('state', state)
     authUrl.searchParams.set('nonce', nonce)
     authUrl.searchParams.set('code_challenge', pkceChallenge(verifier))
@@ -656,14 +687,18 @@ export class OIDC {
         code_verifier: transaction.verifier,
       })
       const basic = Buffer.from(`${this.settings.clientId}:${this.clientSecret}`, 'utf8').toString('base64')
-      const tokens = await this._boundedJson(config.token_endpoint, {
-        method: 'POST',
-        headers: {
-          authorization: `Basic ${basic}`,
-          'content-type': 'application/x-www-form-urlencoded',
+      const tokens = await this._boundedJson(
+        config.token_endpoint,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Basic ${basic}`,
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+          body: form.toString(),
         },
-        body: form.toString(),
-      })
+        { rejectClientError: true },
+      )
       const access = await this.verifyClaims(tokens.access_token, {
         audience: this.settings.audience,
         access: true,
@@ -698,7 +733,10 @@ export class OIDC {
           absolute,
         }),
       }
-      const stored = await this.store.putSession(this.scope, key, session, { now, limit: 1000 })
+      const stored = await this.store.putSession(this.scope, key, session, {
+        now,
+        limit: STORE_CAPACITY_LIMIT,
+      })
       if (!stored) {
         throw new AuthUnavailable('Session capacity exhausted')
       }
@@ -775,13 +813,15 @@ export class OIDC {
       return { status: 'done', result: null }
     }
     if (needsRefresh) {
-      // AP-01: a committed claim removes the old token from storage before
-      // exchanging it. Even cancellation or worker loss cannot replay it.
+      // AP-01: claim exclusive refresh ownership before contacting the IdP.
+      // Keep the encrypted payload for rollback on transient IdP outages
+      // (AuthUnavailable), while bounding claim lifetime to 30s so a crashed
+      // worker expires quickly to re-login instead of stalling for idleSeconds.
       const claim = {
-        expires: row.expires,
+        expires: Math.min(now + REFRESH_CLAIM_SECONDS, row.expires, row.absolute),
         absolute: row.absolute,
         revision: -(expected + 1),
-        payload: new Uint8Array(0),
+        payload: row.payload,
       }
       const claimed = await this.store.replaceSession(this.scope, key, expected, claim)
       if (!claimed) {
@@ -809,7 +849,22 @@ export class OIDC {
         revision: row.revision + 1,
         payload: await this.seal(payload),
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof AuthUnavailable) {
+        // Transient IdP/network failure must not log out a valid session (#20).
+        // Restore the pre-refresh ciphertext via CAS (never upserts, so logout
+        // still wins); if the IdP already rotated the token, the next refresh
+        // receives 4xx (AuthError) and ends the session cleanly.
+        if (needsRefresh) {
+          await this.store.replaceSession(this.scope, key, expected, {
+            expires: row.expires,
+            absolute: row.absolute,
+            revision: row.revision + 1,
+            payload: row.payload,
+          })
+        }
+        throw error
+      }
       // Never invalidate a newer revision on the basis of stale claims.
       await this.store.deleteSession(this.scope, key, { expectedRevision: expected })
       return { status: 'done', result: null }
@@ -833,14 +888,18 @@ export class OIDC {
       refresh_token: refresh,
     })
     const basic = Buffer.from(`${this.settings.clientId}:${this.clientSecret}`, 'utf8').toString('base64')
-    const tokens = await this._boundedJson(config.token_endpoint, {
-      method: 'POST',
-      headers: {
-        authorization: `Basic ${basic}`,
-        'content-type': 'application/x-www-form-urlencoded',
+    const tokens = await this._boundedJson(
+      config.token_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${basic}`,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: form.toString(),
       },
-      body: form.toString(),
-    })
+      { rejectClientError: true },
+    )
     const access = await this.verifyClaims(tokens.access_token, {
       audience: this.settings.audience,
       access: true,
