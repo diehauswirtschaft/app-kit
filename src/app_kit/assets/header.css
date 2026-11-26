@@ -1,0 +1,117 @@
+/* AP-02: one Start-derived header in Svelte, Vue and Jinja. Network context
+ * belongs to the network modules, never to this cross-app identity shell. */
+.dhw-header { position: relative; z-index: 10; color: var(--dhw-navy); background: var(--dhw-white); border-bottom: 2px solid var(--dhw-amber); font-family: var(--dhw-font); line-height: 1.55; }
+/* The brand scrolls away; only the module strip stays at the viewport edge. */
+.dhw-header[data-dhw-sticky-tabs][data-dhw-sticky-ready] { position: sticky; top: calc(-1 * var(--dhw-sticky-brand-height)); }
+/* Keep focused brand/account controls visible even when tabbing backwards. */
+.dhw-header[data-dhw-sticky-tabs][data-dhw-sticky-ready]:has(.dhw-header-inner :focus-visible) { top: 0; }
+.dhw-header [hidden] { display: none !important; }
+/* The desktop back control occupies the existing left gutter, not a new
+ * flex column. The brand therefore has the same x-position with/without it. */
+.dhw-header-inner { box-sizing: border-box; display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 1.25rem; width: 100%; max-width: 90rem; min-height: 5.75rem; margin-inline: auto; padding: .85rem max(3rem, clamp(1rem, 4vw, 4.5rem)); }
+.dhw-brand-group { position: relative; display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.dhw-header .dhw-brand { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1rem; min-width: 0; max-width: 100%; min-height: 44px; color: inherit; text-decoration: none; }
+/* AP-02: separate portal/app targets retain the previous brand geometry. */
+.dhw-header .dhw-portal-link, .dhw-header .dhw-app-name { color: inherit; text-decoration: none; min-height: 44px; }
+.dhw-portal-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
+.dhw-header a[aria-disabled=true] { cursor: not-allowed; }
+.dhw-brand-logo { display: block; flex: 0 0 auto; }
+.dhw-brand-signet { display: none; }
+.dhw-brand-logo source { display: none; }
+.dhw-brand-logo img { display: block; width: clamp(10rem, 18vw, 13.75rem); height: auto; }
+/* AP-02: a short app label is indivisible even after app-local fonts load.
+ * If space is tight, wrap the whole brand/title or navigation, not its letters. */
+/* AP-02: equal x-height for app-local Moderat and the system fallback. Keep
+ * their licensed font sources separate, without making app labels look larger. */
+.dhw-app-name { display: inline-flex; flex-shrink: 0; align-items: center; gap: 1rem; min-width: 44px; font-size: 1.25rem; font-size-adjust: .5; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow-wrap: normal; }
+/* AP-02: Gecko needs the empty divider's width in intrinsic sizing too;
+ * flex-basis alone omits that pixel and wraps the app link despite free space.
+ * Fixed height stays independent of font metrics. */
+.dhw-app-separator { width: 1px; flex: 0 0 1px; height: 1.75rem; background: var(--dhw-aqua); }
+.dhw-header .dhw-back { position: absolute; inset-inline-start: -48px; box-sizing: border-box; display: inline-flex; justify-content: center; align-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid transparent; border-radius: var(--dhw-radius); color: inherit; background: transparent; text-decoration: none; font-size: 1.5rem; padding: 0; }
+/* Geometry rather than a font glyph: locally licensed fonts may differ. */
+.dhw-back > span { position: relative; display: block; width: 24px; height: 24px; font-size: 0; }
+.dhw-back > span::before { content: ''; position: absolute; left: 6px; top: 6px; width: 10px; height: 10px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.dhw-back > span::after { content: ''; position: absolute; left: 4px; top: 11px; width: 18px; border-bottom: 2px solid currentColor; }
+.dhw-back:hover { background: var(--dhw-soft); }
+.dhw-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; min-width: 0; margin-inline-start: auto; }
+.dhw-header a { color: inherit; text-underline-offset: .2em; }
+/* Keep overflow and focus within the strip at narrow widths (AP-02/WCAG 2.4.11). */
+.dhw-header:has(.dhw-module-nav-frame) { border-bottom: 0; }
+.dhw-module-nav-frame { position: relative; box-sizing: border-box; background: linear-gradient(to top, var(--dhw-amber) 2px, transparent 2px); }
+.dhw-module-nav-frame[data-dhw-overflow] { padding-inline: 1.5rem; }
+/* Dedicated gutters keep the scroll cues away from link hit targets and focus. */
+.dhw-module-nav-frame[data-dhw-more-left]::before,
+.dhw-module-nav-frame[data-dhw-more-right]::after { content: ''; position: absolute; box-sizing: border-box; top: calc(50% - .35rem); width: .7rem; height: .7rem; border: solid currentColor; border-width: 0 2.5px 2.5px 0; pointer-events: none; }
+.dhw-module-nav-frame[data-dhw-more-left]::before { left: .55rem; transform: rotate(135deg); }
+.dhw-module-nav-frame[data-dhw-more-right]::after { right: .55rem; transform: rotate(-45deg); }
+.dhw-header .dhw-module-nav { position: relative; box-sizing: border-box; flex-wrap: nowrap; align-items: stretch; gap: .6rem; overflow-x: auto; width: 100%; max-width: 90rem; margin-inline: auto; padding: 0 .65rem; }
+.dhw-module-nav a { display: inline-flex; align-items: center; flex: 0 0 auto; max-width: 100%; overflow-wrap: anywhere; min-height: 44px; padding-inline: .65rem; text-decoration: none; }
+.dhw-module-nav a { position: relative; }
+.dhw-module-nav a + a::before { content: ''; position: absolute; inset-inline-start: -.3rem; inset-block: 30%; width: 1px; background: color-mix(in srgb, var(--dhw-aqua) 68%, currentColor); opacity: .65; pointer-events: none; }
+.dhw-module-nav a[aria-current] { font-weight: 700; background: var(--dhw-surface); border-radius: .45rem .45rem 0 0; }
+@media (forced-colors: active) { .dhw-module-nav a[aria-current] { text-decoration: underline; } }
+.dhw-header .dhw-module-nav a:focus-visible { outline-offset: -3px; }
+.dhw-module-nav-frame[data-dhw-more-ready] { padding-inline: 0; }
+.dhw-module-nav-frame[data-dhw-more-ready]::before, .dhw-module-nav-frame[data-dhw-more-ready]::after { display: none; }
+.dhw-header [data-dhw-more-ready] .dhw-module-nav { overflow: visible; }
+.dhw-module-nav a[data-dhw-compact] > span:first-child { display: none; }
+.dhw-nav-short { display: none; }
+.dhw-module-nav a[data-dhw-compact] > .dhw-nav-short { display: inline; }
+.dhw-header .dhw-module-nav .dhw-more-toggle:not(:disabled) { align-self: center; background: transparent; color: inherit; flex: 0 0 44px; padding: 0; border: 0; border-inline: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 0; font-size: 1.3rem; }
+.dhw-header .dhw-module-nav .dhw-more-toggle:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.dhw-more-panel { position: absolute; z-index: 1; inset-inline-end: .65rem; top: 100%; box-sizing: border-box; min-width: min(12rem, calc(100% - 1.3rem)); max-width: calc(100% - 1.3rem); padding: .35rem; color: var(--dhw-fg); background: var(--dhw-bg); border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); box-shadow: var(--dhw-menu-shadow); }
+.dhw-more-panel a { display: flex; min-height: 44px; align-items: center; padding: .35rem .65rem; overflow-wrap: anywhere; }
+.dhw-nav-lock { max-width: 90rem; margin: 0 auto; padding: .25rem 1rem; }
+.dhw-header form { margin: 0; }
+.dhw-profile { position: relative; }
+.dhw-profile > summary { box-sizing: border-box; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; border: 1px solid currentColor; border-radius: 50%; color: var(--dhw-navy); background: var(--dhw-aqua); cursor: pointer; font-size: .9rem; font-weight: 700; list-style: none; }
+.dhw-profile > summary::-webkit-details-marker { display: none; }
+.dhw-avatar-image { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+/* The profile menu must paint above the later, positioned module strip. */
+.dhw-profile-panel { box-sizing: border-box; position: absolute; z-index: 2; right: 0; top: calc(100% + .5rem); width: min(19rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--dhw-line); border-radius: var(--dhw-radius); background: var(--dhw-bg); color: var(--dhw-fg); box-shadow: var(--dhw-menu-shadow); }
+.dhw-header-user { display: block; margin: 0 0 .75rem; overflow-wrap: anywhere; font-weight: 700; }
+.dhw-profile-panel a { display: flex; align-items: center; min-height: 44px; margin-inline: -.5rem; padding: .5rem; border-radius: calc(var(--dhw-radius) / 1.5); text-decoration: none; transition: background-color 120ms ease-out; }
+/* AP-02: menu rows get an Aqua-tinted hover in both schemes; current page is bold only. */
+.dhw-profile-panel a:hover { background: color-mix(in srgb, var(--dhw-aqua) 35%, var(--dhw-bg)); text-decoration: underline; }
+.dhw-profile-panel a[aria-current=page] { font-weight: 700; }
+.dhw-profile-panel .dhw-header-user { padding-bottom: .75rem; border-bottom: 1px solid color-mix(in srgb, var(--dhw-line) 25%, transparent); }
+.dhw-header button:not(.dhw-back) { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .5rem .9rem; border: 1px solid var(--dhw-action-bg); border-radius: var(--dhw-radius); font: inherit; font-weight: 700; color: var(--dhw-action-fg); background: var(--dhw-action-bg); cursor: pointer; }
+.dhw-header button:disabled { opacity: .6; cursor: not-allowed; }
+.dhw-header button:not(.dhw-back) { transition: background-color 120ms ease-out, border-color 120ms ease-out; }
+/* AP-02: action hover Navy -> Azure (light), Aqua -> lighter Aqua (dark); text pairs stay >=4.5:1. */
+.dhw-header button:not(.dhw-back):not(:disabled):hover { background: var(--dhw-azure); border-color: var(--dhw-azure); }
+.dhw-profile-panel > button, .dhw-profile-panel > form { width: 100%; margin-top: .75rem; }
+.dhw-profile-panel > form > button { width: 100%; }
+.dhw-profile > summary { transition: box-shadow 120ms ease-out; }
+.dhw-profile > summary:hover, .dhw-profile[open] > summary { box-shadow: 0 0 0 3px var(--dhw-amber); }
+.dhw-header :focus-visible { outline: 3px solid var(--dhw-focus); outline-offset: 3px; }
+@media (prefers-color-scheme: dark) {
+  .dhw-header { color: var(--dhw-white); background: var(--dhw-navy); }
+  .dhw-header button:not(.dhw-back):not(:disabled):hover { background: color-mix(in srgb, var(--dhw-aqua) 70%, var(--dhw-white)); border-color: color-mix(in srgb, var(--dhw-aqua) 70%, var(--dhw-white)); }
+}
+/* Svelte/Vue consumers load header.css without app-kit.css; keep the motion guard here too. */
+@media (prefers-reduced-motion: reduce) { .dhw-header *, .dhw-header *::before, .dhw-header *::after { transition: none !important; } }
+@media (max-width: 44rem) {
+  .dhw-header-inner { flex-wrap: nowrap; gap: .5rem; min-height: 4.5rem; padding: .75rem 1rem; }
+  .dhw-brand-group { flex: 1 1 auto; gap: .5rem; }
+  .dhw-header .dhw-back { position: static; flex: 0 0 44px; }
+  .dhw-header .dhw-brand { flex: 0 1 auto; flex-wrap: nowrap; gap: .5rem; }
+  /* A 44px logo target around the existing 40px signet, without moving it
+   * or reserving any space for a missing Back control. */
+  .dhw-portal-link { padding-inline: 2px; margin-inline: -2px; }
+  .dhw-brand-logo { display: none; }
+  .dhw-brand-signet { display: block; flex: 0 0 40px; }
+  .dhw-brand-signet source { display: none; }
+  .dhw-brand-signet img { display: block; width: 40px; height: 36px; object-fit: contain; }
+  /* Mobile keeps the app context but omits only the long wordmark. All
+   * navigation/profile hit targets remain 44px (AP-02 / WCAG 2.2 AA). */
+  .dhw-app-name { gap: .5rem; font-size: 1rem; }
+  /* The portal's short label leaves room for its wordmark even at 320px,
+   * including its internal Back control and 44px profile target (AP-02). */
+  .dhw-wordmark-mobile .dhw-brand-logo { display: block; }
+  .dhw-wordmark-mobile .dhw-brand-logo img { width: clamp(7.5rem, 36vw, 9rem); }
+  .dhw-wordmark-mobile .dhw-brand-signet { display: none; }
+  .dhw-header nav { flex: 0 0 auto; flex-wrap: nowrap; gap: 0; margin-inline-start: auto; }
+}
+@media print { .dhw-header { display: none; } }

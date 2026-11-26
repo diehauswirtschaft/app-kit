@@ -1,0 +1,13 @@
+export function portalHref(entry: unknown): string | null;
+export function entryForOrigin(origin: string): string | null;
+export function capturePortalEntry(url: URL, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null): string | null;
+export type PortalTarget = 'start' | 'staging';
+export type ModuleNavItem = { label: string; href: string; shortLabel?: string; match?: 'exact' | 'prefix' };
+export type HeaderGuard = { mode: 'confirm' | 'block'; message: string };
+export function requirePortalHref(target: unknown): string;
+export function cleanLegacyPortalEntry(location: Location, history: History): void;
+export function localNavLinks(items?: readonly ModuleNavItem[], pathname?: string, limit?: number): (ModuleNavItem & { current?: 'page' | 'location' })[];
+export function guardHeaderExit(event: Event, guard?: HeaderGuard | null, confirmExit?: (message: string) => boolean): boolean;
+export function initials(name: string): string;
+export function avatarPath(value: unknown): string | null;
+export function installHeaderInteractions(root: HTMLElement): () => void;
