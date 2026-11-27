@@ -16,6 +16,12 @@ current pathname for active marking and an explicit portal target (`start` or
 `staging`) from deployment configuration. The avatar menu requires a signed-in
 user from the app's server session. Links are not authorization checks.
 
+The signet is named `Startseite` and leads to the portal. The title link uses
+only the visible app or module name. It leads to `/` in a standalone app. An
+embedding portal passes the registered module entry path as `moduleHome`
+(Jinja: `module_home` in `header_navigation()`). Use the same entry path on
+subpages, not the current page URL.
+
 ### Svelte 5
 
 ```svelte

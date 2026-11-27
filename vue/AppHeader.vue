@@ -4,7 +4,7 @@ import logo from '../src/app_kit/assets/logo.svg'
 import logoDark from '../src/app_kit/assets/logo-dark.svg'
 import signet from '../src/app_kit/assets/signet.svg'
 import signetDark from '../src/app_kit/assets/signet-dark.svg'
-import { avatarPath, cleanLegacyPortalEntry, guardHeaderExit, initials, installHeaderInteractions, localNavLinks, requirePortalHref } from '../src/app_kit/assets/navigation.js'
+import { avatarPath, cleanLegacyPortalEntry, guardHeaderExit, initials, installHeaderInteractions, localNavLinks, moduleHomeHref, requirePortalHref } from '../src/app_kit/assets/navigation.js'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -14,6 +14,7 @@ const props = defineProps({
   logoutDisabled: { type: Boolean, default: false },
   portalTarget: { type: String, required: true },
   pathname: { type: String, default: '/' },
+  moduleHome: String,
   stickyTabs: { type: Boolean, default: true },
   moduleNav: { type: Array, default: () => [] },
   avatarLinks: { type: Array, default: () => [] },
@@ -25,13 +26,14 @@ const emit = defineEmits(['logout', 'overview'])
 const instance = getCurrentInstance()
 function visitHome(event) {
   // Older Meeting consumers own the home transition within their SPA.
-  if (instance.vnode.props?.onOverview) {
+  if (appHome.value === '/' && instance.vnode.props?.onOverview) {
     event.preventDefault()
     emit('overview')
   }
 }
 const root = ref(null)
 const portal = computed(() => requirePortalHref(props.portalTarget))
+const appHome = computed(() => moduleHomeHref(props.moduleHome))
 const tabs = computed(() => localNavLinks(props.moduleNav, props.pathname, 5))
 const menu = computed(() => localNavLinks([...props.avatarLinks, ...(props.helpHref ? [{ label: `Hilfe zu ${props.title}`, href: props.helpHref }] : [])], props.pathname))
 const exitGuard = computed(() => props.logoutDisabled ? { mode: 'block', message: 'Aufnahme zuerst beenden' } : props.guard)
@@ -59,12 +61,12 @@ onBeforeUnmount(() => cleanup())
     <div class="dhw-header-inner">
       <div class="dhw-brand-group">
         <div class="dhw-brand">
-        <a class="dhw-portal-link" v-bind="link(portal)" aria-label="Zum dHW-Startportal">
+        <a class="dhw-portal-link" v-bind="link(portal)" aria-label="Startseite">
           <picture class="dhw-brand-logo"><source media="(prefers-color-scheme: dark)" :srcset="logoDark"><img :src="logo" alt="die HausWirtschaft" width="1538" height="185"></picture>
           <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" :srcset="signetDark"><img :src="signet" alt="" width="306" height="185"></picture>
         </a>
         <span class="dhw-app-separator" aria-hidden="true"></span>
-        <a class="dhw-app-name" v-bind="link('/')" :aria-label="`${title} – Startseite`" @click.exact="visitHome">{{ title }}</a>
+        <a class="dhw-app-name" v-bind="link(appHome)" :aria-current="appHome !== '/' && pathname === appHome ? 'page' : undefined" @click.exact="visitHome">{{ title }}</a>
         </div>
       </div>
       <nav aria-label="App-Navigation">

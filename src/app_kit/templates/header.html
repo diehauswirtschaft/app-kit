@@ -1,5 +1,6 @@
 {# AP-02: pass header_navigation() from the app, not untrusted request data. #}
 {% set blocked = header_nav.guard and header_nav.guard.mode == 'block' %}
+{% set app_home_active = (overview_active|default(false)) if header_nav.app_home == '/' else header_nav.app_home_active %}
 {% macro destination(href) -%}
   {% if blocked %}role="link" tabindex="0" aria-disabled="true" aria-describedby="dhw-nav-lock"{% else %}href="{{ href }}"{% endif %}
 {%- endmacro %}
@@ -7,7 +8,7 @@
   <div class="dhw-header-inner">
     <div class="dhw-brand-group">
       <div class="dhw-brand">
-      <a class="dhw-portal-link" data-dhw-portal-home {{ destination(header_nav.portal_href) }} aria-label="Zum dHW-Startportal">
+      <a class="dhw-portal-link" data-dhw-portal-home {{ destination(header_nav.portal_href) }} aria-label="Startseite">
         <picture class="dhw-brand-logo">
           <source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/logo-dark.svg">
           <img src="/assets/app-kit/logo.svg" alt="die HausWirtschaft" width="1538" height="185">
@@ -15,7 +16,7 @@
         <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" srcset="/assets/app-kit/signet-dark.svg"><img src="/assets/app-kit/signet.svg" alt="" width="306" height="185"></picture>
       </a>
       <span class="dhw-app-separator" aria-hidden="true"></span>
-      <a class="dhw-app-name" {{ destination("/") }} aria-label="{{ app_title }} – Startseite"{% if overview_active %} aria-current="page"{% endif %}>{{ app_title }}</a>
+      <a class="dhw-app-name" {{ destination(header_nav.app_home) }}{% if app_home_active %} aria-current="page"{% endif %}>{{ app_title }}</a>
       </div>
     </div>
     <nav aria-label="App-Navigation">

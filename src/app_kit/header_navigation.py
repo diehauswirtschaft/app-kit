@@ -13,6 +13,14 @@ def require_portal_href(target: str) -> str:
     return _PORTALS[target]
 
 
+def _is_local_nav_path(href: object) -> bool:
+    return (
+        isinstance(href, str)
+        and re.fullmatch(r"/(?:[a-zA-Z0-9_.~-]+/)*[a-zA-Z0-9_.~-]*", href) is not None
+        and not {".", ".."}.intersection(href.split("/"))
+    )
+
+
 def local_nav_links(
     items: Iterable[Mapping], pathname: str, limit: int | None = None
 ) -> list[dict]:
@@ -24,9 +32,7 @@ def local_nav_links(
         if (
             not isinstance(label, str)
             or not label.strip()
-            or not isinstance(href, str)
-            or not re.fullmatch(r"/(?:[a-zA-Z0-9_.~-]+/)*[a-zA-Z0-9_.~-]*", href)
-            or {".", ".."}.intersection(href.split("/"))
+            or not _is_local_nav_path(href)
             or href in seen
         ):
             continue
@@ -61,12 +67,17 @@ def header_navigation(
     help_href=None,
     guard=None,
     sticky_tabs=True,
+    module_home=None,
 ) -> dict:
+    # AP-02: an embedded module's registered entry must be a local path.
+    app_home = module_home if _is_local_nav_path(module_home) else "/"
     menu = [*avatar_links]
     if help_href:
         menu.append({"label": f"Hilfe zu {title}", "href": help_href})
     return {
         "portal_href": require_portal_href(target),
+        "app_home": app_home,
+        "app_home_active": pathname == app_home,
         "tabs": local_nav_links(module_nav, pathname, 5),
         "menu": local_nav_links(menu, pathname),
         "guard": guard,

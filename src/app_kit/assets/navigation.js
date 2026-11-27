@@ -31,14 +31,16 @@ export function cleanLegacyPortalEntry(location, history) {
     history.replaceState(history.state, '', url)
   }
 }
-// Never allow an app menu to become an open redirect or carry URL credentials.
+// Never allow header navigation to become an open redirect or carry URL credentials.
+function isLocalNavPath(href) {
+  return typeof href === 'string' && /^\/(?:[a-z0-9_.~-]+\/)*[a-z0-9_.~-]*$/i.test(href) &&
+    !href.split('/').some(segment => segment === '.' || segment === '..')
+}
 export function localNavLinks(items = [], pathname = '/', limit = Infinity) {
   const links = []
   for (const item of items) {
-    if (!item || typeof item.label !== 'string' || !item.label.trim() || typeof item.href !== 'string' ||
-        !/^\/(?:[a-z0-9_.~-]+\/)*[a-z0-9_.~-]*$/i.test(item.href) ||
-        item.href.split('/').some(segment => segment === '.' || segment === '..') ||
-        links.some(link => link.href === item.href)) continue
+    if (!item || typeof item.label !== 'string' || !item.label.trim() ||
+        !isLocalNavPath(item.href) || links.some(link => link.href === item.href)) continue
     links.push({ label: item.label.trim(), href: item.href, shortLabel: typeof item.shortLabel === 'string' ? item.shortLabel.trim() : undefined, match: item.match, current: undefined })
     if (links.length >= limit) break
   }
@@ -51,6 +53,10 @@ export function localNavLinks(items = [], pathname = '/', limit = Infinity) {
   }
   if (active) active.current = active.href === pathname ? 'page' : 'location'
   return links
+}
+// AP-02: an embedded module's registered entry must be a local path.
+export function moduleHomeHref(moduleHome) {
+  return isLocalNavPath(moduleHome) ? moduleHome : '/'
 }
 export function guardHeaderExit(event, guard, confirmExit = message => window.confirm(message)) {
   if (!guard || (guard.mode === 'confirm' && confirmExit(guard.message))) return true

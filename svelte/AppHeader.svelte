@@ -5,7 +5,7 @@
   import logoDark from '../src/app_kit/assets/logo-dark.svg';
   import signet from '../src/app_kit/assets/signet.svg';
   import signetDark from '../src/app_kit/assets/signet-dark.svg';
-  import { avatarPath, initials, installHeaderInteractions, cleanLegacyPortalEntry, guardHeaderExit, localNavLinks, requirePortalHref, type PortalTarget, type HeaderGuard, type ModuleNavItem } from '../src/app_kit/assets/navigation.js';
+  import { avatarPath, initials, installHeaderInteractions, cleanLegacyPortalEntry, guardHeaderExit, localNavLinks, moduleHomeHref, requirePortalHref, type PortalTarget, type HeaderGuard, type ModuleNavItem } from '../src/app_kit/assets/navigation.js';
 
   interface Props {
     title: string;
@@ -14,6 +14,7 @@
     authenticated?: boolean;
     portalTarget: PortalTarget;
     pathname?: string;
+    moduleHome?: string;
     stickyTabs?: boolean;
     moduleNav?: readonly ModuleNavItem[];
     avatarLinks?: readonly ModuleNavItem[];
@@ -23,8 +24,9 @@
     profileActive?: boolean;
     mobileWordmark?: boolean;
   }
-  let { title, userName = '', userImage = null, authenticated = false, overviewActive = false, profileActive = false, mobileWordmark = false, portalTarget, pathname = '/', stickyTabs = true, moduleNav, avatarLinks, helpHref, guard }: Props = $props();
+  let { title, userName = '', userImage = null, authenticated = false, overviewActive = false, profileActive = false, mobileWordmark = false, portalTarget, pathname = '/', moduleHome, stickyTabs = true, moduleNav, avatarLinks, helpHref, guard }: Props = $props();
   const portal = $derived(requirePortalHref(portalTarget));
+  const appHome = $derived(moduleHomeHref(moduleHome));
   const tabs = $derived(localNavLinks(moduleNav, pathname, 5));
   const menu = $derived(localNavLinks([...(avatarLinks ?? []), ...(helpHref ? [{ label: `Hilfe zu ${title}`, href: helpHref }] : [])], pathname));
   const guardId = $props.id();
@@ -56,12 +58,12 @@
   <div class="dhw-header-inner">
     <div class="dhw-brand-group">
       <div class="dhw-brand">
-      <a class="dhw-portal-link" {...link(portal)} aria-label="Zum dHW-Startportal">
+      <a class="dhw-portal-link" {...link(portal)} aria-label="Startseite">
         <picture class="dhw-brand-logo"><source media="(prefers-color-scheme: dark)" srcset={logoDark} /><img src={logo} alt="die HausWirtschaft" width="1538" height="185" /></picture>
         <picture class="dhw-brand-signet"><source media="(prefers-color-scheme: dark)" srcset={signetDark} /><img src={signet} alt="" width="306" height="185" /></picture>
       </a>
       <span class="dhw-app-separator" aria-hidden="true"></span>
-      <a class="dhw-app-name" {...link("/")} aria-label={`${title} – Startseite`} aria-current={overviewActive ? 'page' : undefined}>{title}</a>
+      <a class="dhw-app-name" {...link(appHome)} aria-current={(appHome === '/' ? overviewActive : pathname === appHome) ? 'page' : undefined}>{title}</a>
       </div>
     </div>
     <nav aria-label="App-Navigation">

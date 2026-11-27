@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cleanLegacyPortalEntry, guardHeaderExit, localNavLinks, requirePortalHref } from '../src/app_kit/assets/navigation.js'
+import { cleanLegacyPortalEntry, guardHeaderExit, localNavLinks, moduleHomeHref, requirePortalHref } from '../src/app_kit/assets/navigation.js'
 
 const items = ['/', '/meine', '/meine/detail', '/meine-alt', '//invalid.test', '/%2e', '/./test'].map(href => ({ label: href, href }))
 test('one active area, path boundaries and only same-origin destinations', () => {
@@ -10,6 +10,13 @@ test('one active area, path boundaries and only same-origin destinations', () =>
   assert.deepEqual(active('/meine-andere'), [])
   assert.equal(localNavLinks(items).length, 4)
   assert.equal(localNavLinks(items, '/', 2).length, 2)
+})
+
+test('module titles link to their local entry; standalone apps link to root', () => {
+  assert.equal(moduleHomeHref('/wifi'), '/wifi')
+  assert.equal(moduleHomeHref(), '/')
+  assert.equal(moduleHomeHref('//example.invalid'), '/')
+  assert.equal(moduleHomeHref('/wifi/../profil'), '/')
 })
 
 test('deployment configuration is explicit and legacy entry changes no destination', () => {

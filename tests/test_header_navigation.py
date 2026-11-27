@@ -40,6 +40,26 @@ def test_config_and_optional_menu_without_module_strip():
     assert 'type="submit" disabled' in blocked
 
 
+@pytest.mark.parametrize(
+    ("pathname", "module_home", "href", "current"),
+    [
+        ("/wifi", "/wifi", "/wifi", ' aria-current="page"'),
+        ("/wifi/details", "/wifi", "/wifi", ""),
+        ("/wifi", "//example.invalid", "/", ""),
+        ("/", None, "/", ""),
+    ],
+)
+def test_signet_and_module_name_have_separate_destinations(pathname, module_home, href, current):
+    env = Environment(loader=PackageLoader("app_kit", "templates"), undefined=StrictUndefined)
+    html = env.get_template("header.html").render(
+        app_title="WLAN",
+        header_nav=header_navigation("start", "WLAN", pathname, module_home=module_home),
+        user=None,
+    )
+    assert 'href="https://start.dhw.wien/" aria-label="Startseite"' in html
+    assert f'<a class="dhw-app-name" href="{href}"{current}>WLAN</a>' in html
+
+
 def test_unique_most_specific_active_target():
     entries = [
         {"label": value, "href": value} for value in ["/", "/meine", "/meine/detail", "/meine-alt"]
