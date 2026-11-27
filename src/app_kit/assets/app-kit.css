@@ -1,4 +1,4 @@
-/* Server-rendered UI layer; design_css() prepends shared tokens/header. */
+/* Shared page styles. Load after tokens.css and header.css, as design_css() does. */
 *, *::before, *::after { box-sizing: border-box; }
 html { font-family: var(--dhw-font); background: var(--dhw-surface); color: var(--dhw-fg); }
 body { margin: 0; line-height: 1.6; }

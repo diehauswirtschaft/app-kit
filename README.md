@@ -1,26 +1,43 @@
 # App-kit
 
-App-kit gives HausWirtschaft apps a consistent header, navigation and design
-without making each app rebuild them. It also offers optional Python OIDC
-helpers for Keycloak. Each app keeps control of its routes, permissions and
-session storage.
+App-kit ist die gemeinsame Bibliothek für Kopfzeile, Navigation und Design der
+HausWirtschaft-Apps. Für die Anmeldung mit Keycloak gibt es optionale
+OIDC-Bausteine für Python und Node/SvelteKit. Jede App verwaltet ihre Routen,
+Berechtigungen und Sitzungen selbst.
 
-## Use the header
+**Du startest eine neue App?** [app-example](https://github.com/diehauswirtschaft/app-example)
+bietet startfertige Vorlagen für FastAPI und SvelteKit. Dort ist app-kit bereits
+in einer festgelegten Version eingebunden. Diese README erklärt die Einbindung
+und Konfiguration von app-kit, auch für bestehende Apps.
 
-Pin a reviewed App-kit commit or release in your app's lockfile. Use the Svelte 5,
-Vue 3 or Python/Jinja adapter and bundle its assets locally.
+## Basisstile und Kopfzeile einbinden
 
-All three examples show two tabs (**Übersicht**, **Dokumente**) and two avatar
-menu links (**Einstellungen**, **Hilfe**). Use your app's own routes. Pass the
-current pathname for active marking and an explicit portal target (`start` or
-`staging`) from deployment configuration. The avatar menu requires a signed-in
-user from the app's server session. Links are not authorization checks.
+1. Lege im Lockfile deiner App einen geprüften App-kit-Commit oder ein geprüftes
+   Release fest.
+2. Wähle den Adapter für Svelte 5, Vue 3 oder Python/Jinja. Binde die Styles
+   einmal für die ganze App ein. Bei JavaScript gilt diese Reihenfolge:
+   `tokens.css`, `header.css`, `base.css`. In Python liefert `design_css()`
+   dieselben drei Dateien in derselben Reihenfolge.
+3. Verwende die Routen deiner App. Übergib den aktuellen Pfad, damit die
+   Kopfzeile den aktiven Link markieren kann. Lies das Portalziel (`start` oder
+   `staging`) aus deiner Deployment-Konfiguration.
 
-The signet is named `Startseite` and leads to the portal. The title link uses
-only the visible app or module name. It leads to `/` in a standalone app. An
-embedding portal passes the registered module entry path as `moduleHome`
-(Jinja: `module_home` in `header_navigation()`). Use the same entry path on
-subpages, not the current page URL.
+`base.css` wendet die Design-Tokens auf den Seitenhintergrund, die Schrift
+und den Tastaturfokus an. Setze `<main class="dhw-main">` um den Seiteninhalt.
+Die Klasse gibt dem Inhalt einen flexiblen Seitenabstand und eine maximale
+Breite. Der Hell- und Dunkelmodus folgt der Systemeinstellung.
+
+Die Beispiele zeigen zwei Registerkarten (**Übersicht**, **Dokumente**) und zwei
+Links im Profilmenü (**Einstellungen**, **Hilfe**). Das Profilmenü erscheint nur,
+wenn die serverseitige Sitzung eine Anmeldung bestätigt. Links ersetzen keine
+Berechtigungsprüfung.
+
+Das W-Signet heißt für Screenreader „Startseite“ und führt zur Startseite des
+Portals. Der Titel-Link heißt wie die App oder das Modul. Bei eigenständigen
+Apps führt er zu `/`. Ein Portal mit eingebetteten Modulen übergibt den
+registrierten Einstiegspfad als `moduleHome` (bei Jinja: `module_home` in
+`header_navigation()`). Übergib auch auf Unterseiten diesen Einstiegspfad,
+nicht den aktuellen Pfad.
 
 ### Svelte 5
 
@@ -28,6 +45,7 @@ subpages, not the current page URL.
 <script lang="ts">
   import '@diehauswirtschaft/app-kit/tokens.css';
   import '@diehauswirtschaft/app-kit/header.css';
+  import '@diehauswirtschaft/app-kit/base.css';
   import AppHeader from '@diehauswirtschaft/app-kit/svelte/AppHeader.svelte';
   import type { PortalTarget } from '@diehauswirtschaft/app-kit/navigation';
 
@@ -51,9 +69,10 @@ subpages, not the current page URL.
 />
 ```
 
-In SvelteKit, pass `page.url.pathname` from `$app/state`. The profile menu also
-links to `/profil` and posts to `/auth/logout` without a form token. Supply those
-routes and enforce your app's server-side CSRF protection on logout.
+Übergib in SvelteKit `page.url.pathname` aus `$app/state`. Das Profilmenü
+verlinkt auch `/profil` und sendet einen POST an `/auth/logout`. Das Formular
+enthält kein CSRF-Token. Stelle beide Routen bereit und setze den serverseitigen
+CSRF-Schutz deiner App für die Abmeldung durch.
 
 ### Vue 3
 
@@ -61,6 +80,7 @@ routes and enforce your app's server-side CSRF protection on logout.
 <script setup lang="ts">
 import '@diehauswirtschaft/app-kit/tokens.css'
 import '@diehauswirtschaft/app-kit/header.css'
+import '@diehauswirtschaft/app-kit/base.css'
 import AppHeader from '@diehauswirtschaft/app-kit/vue/AppHeader.vue'
 import type { PortalTarget } from '@diehauswirtschaft/app-kit/navigation'
 
@@ -88,7 +108,7 @@ const emit = defineEmits<{ logout: [] }>()
 </template>
 ```
 
-Bind `logout` to the app's local, CSRF-protected logout handler.
+Verbinde `logout` mit der lokalen, CSRF-geschützten Abmeldefunktion deiner App.
 
 ### Python / Jinja
 
@@ -118,38 +138,47 @@ def header_context(portal_target, pathname, *, user, csrf):
                 {'label': 'Hilfe', 'href': '/hilfe'},
             ],
         ),
-        'user': user,  # Authenticated user with a name, or None.
+        'user': user,  # Angemeldete Person mit Namen oder None.
         'csrf': csrf,
     }
 ```
 
-If you already have a Jinja environment, add the App-kit loader alongside your
-app's loader. Render the page with `header_context(...)` and
-`{% include 'header.html' %}`. Serve `design_css()` as a local stylesheet, the
-packaged `logo.svg`, `logo-dark.svg`, `signet.svg` and `signet-dark.svg` from
-`brand_logo_svg()` under `/assets/app-kit/`, and `shell.js` and `navigation.js`
-from `shell_asset()` under the same prefix. On `POST /auth/logout`, validate the
-`_csrf` form field server-side.
+1. Wenn du schon eine Jinja-Umgebung hast, ergänze den App-kit-Loader neben dem
+   Loader deiner App.
+2. Übergib `header_context(...)` an die Vorlage. Binde die Kopfzeile mit
+   `{% include 'header.html' %}` ein.
+3. Stelle `design_css()` als lokales Stylesheet bereit. Liefere unter
+   `/assets/app-kit/` die Dateien `logo.svg`, `logo-dark.svg`, `signet.svg` und
+   `signet-dark.svg` über `brand_logo_svg()` aus. Liefere unter demselben Pfad
+   `shell.js` und `navigation.js` über `shell_asset()` aus.
+4. Prüfe bei `POST /auth/logout` das Formularfeld `_csrf` auf dem Server.
 
-Tabs are normal links: the app decides whether to handle them client-side.
-Use same-origin paths without query strings or fragments for additional links
-and avatar images. The strip appears with at least two valid tabs (up to five).
-Set `stickyTabs: false` (`sticky_tabs=False` in Python) to disable sticky tabs.
+Registerkarten sind normale Links. Die App entscheidet, ob sie die Navigation
+im Browser selbst übernimmt. Verwende für zusätzliche Links und Profilbilder
+Pfade auf derselben Origin, ohne URL-Parameter oder Fragmente. Die Leiste
+erscheint ab zwei gültigen Registerkarten und zeigt höchstens fünf. Mit
+`stickyTabs: false` (in Python: `sticky_tabs=False`) bleibt die Leiste beim
+Scrollen nicht oben stehen.
 
-## Optional: Server-side OIDC (Python and Node / SvelteKit)
+## Optional: Serverseitige Anmeldung mit OIDC (Python und Node/SvelteKit)
 
-Standalone apps use one confidential Keycloak client per environment (see
-[deploy/keycloak-web-client.template.json](deploy/keycloak-web-client.template.json)).
-Because the template sets `fullScopeAllowed: false`, assign the app's admission
-role(s) (e.g. `dhw-member-role`) under **Clients → `<client>` → Client scopes →
-`<client>-dedicated` → Scope → Assign role** and verify `realm_access.roles` via
-**Evaluate** in `dhw-dev`; otherwise `realm_access.roles` stays empty and login
-rejects all users.
-Tokens stay on the server; the browser receives an opaque host-bound session
-cookie. The app provides its own `SessionStore` and enforces route permissions.
-Neither the Python nor the Node module requires a specific database.
+Eigenständige Apps verwenden einen vertraulichen Keycloak-Client je Umgebung.
+Siehe [Keycloak-Client-Vorlage](deploy/keycloak-web-client.template.json).
 
-### Python backend
+1. Die Vorlage setzt `fullScopeAllowed: false`. Weise deshalb die Rollen zu, die
+   zur Anmeldung berechtigen (zum Beispiel `dhw-member-role`). Der Menüpfad in
+   Keycloak lautet **Clients → `<client>` → Client scopes → `<client>-dedicated`
+   → Scope → Assign role**.
+2. Prüfe in `dhw-dev` unter **Evaluate**, ob die Rollen im Access-Token unter
+   `realm_access.roles` stehen. Ohne eine passende Rolle lehnt die App die
+   Anmeldung ab.
+
+Die Tokens bleiben auf dem Server. Der Browser erhält nur eine undurchsichtige
+Sitzungskennung in einem Cookie, das an den Host der App gebunden ist. Die App
+stellt ihren eigenen `SessionStore` bereit und prüft die Berechtigungen für ihre
+Routen. Weder der Python- noch der Node-Baustein schreibt eine Datenbank vor.
+
+### Python-Backend
 
 ```python
 from app_kit.auth import OIDC
@@ -157,7 +186,7 @@ from app_kit.auth import OIDC
 auth = OIDC(settings, store=session_store)
 ```
 
-### Node / SvelteKit backend
+### Node-/SvelteKit-Backend
 
 ```ts
 import { OIDC, type SessionStore } from '@diehauswirtschaft/app-kit/oidc';
@@ -169,21 +198,27 @@ export const auth = new OIDC(
     audience: 'dhw-example-web',
     origin: 'https://example.dhw.wien',
     clientSecretFile: '/run/secrets/oidc-client-secret',
-    sessionKeyFile: '/run/secrets/session-key', // 32-byte base64url secret
+    sessionKeyFile: '/run/secrets/session-key', // 32 Byte, base64url-kodiert
     admissionRoles: ['dhw-member-role'],
   },
   { store: sessionStore satisfies SessionStore },
 );
 ```
 
-Wire `/auth/login` to `auth.loginResponse()`, `/auth/callback` to
-`auth.callbackResponse(request)`, `hooks.server.ts` to
-`auth.authenticate(request)` and `POST /auth/logout` to
-`auth.logoutResponse(request, { csrfToken, expectedCsrf })`. See the
-[session storage guide](docs/session-storage-migration.md) for store atomicity
-rules and the optional Python PostgreSQL adapter.
+Verbinde die Routen und den Server-Hook so:
 
-## Local checks
+| Route oder Hook | App-kit-Methode |
+| --- | --- |
+| `/auth/login` | `auth.loginResponse()` |
+| `/auth/callback` | `auth.callbackResponse(request)` |
+| `hooks.server.ts` | `auth.authenticate(request)` |
+| `POST /auth/logout` | `auth.logoutResponse(request, { csrfToken, expectedCsrf })` |
+
+Die [Anleitung zum Sitzungsspeicher](docs/session-storage-migration.md) erklärt,
+welche Operationen atomar sein müssen und wie der optionale PostgreSQL-Adapter
+für Python funktioniert.
+
+## Lokale Prüfungen
 
 ```sh
 uv sync --locked --python 3.13
@@ -193,7 +228,8 @@ npm ci --ignore-scripts
 node --test tests/*.test.mjs
 ```
 
-For the isolated PostgreSQL adapter tests, use
+Starte die isolierten Tests für den PostgreSQL-Adapter mit
 `uv run --locked --extra postgres python scripts/test_postgres.py -q`.
-Never run those tests against a live database. Local checks do not replace
-real SSO, browser and deployment acceptance. See [SECURITY.md](SECURITY.md).
+Führe diese Tests nie gegen eine Datenbank im laufenden Betrieb aus. Lokale
+Prüfungen ersetzen keine Abnahme mit echtem SSO, im Browser und in der
+Zielumgebung. Siehe [SECURITY.md](SECURITY.md).
