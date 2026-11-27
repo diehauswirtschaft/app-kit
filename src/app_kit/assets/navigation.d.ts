@@ -7,6 +7,7 @@ export type HeaderGuard = { mode: 'confirm' | 'block'; message: string };
 export function requirePortalHref(target: unknown): string;
 export function cleanLegacyPortalEntry(location: Location, history: History): void;
 export function localNavLinks(items?: readonly ModuleNavItem[], pathname?: string, limit?: number): (ModuleNavItem & { current?: 'page' | 'location' })[];
+export function moduleHomeHref(moduleHome?: string): string;
 export function guardHeaderExit(event: Event, guard?: HeaderGuard | null, confirmExit?: (message: string) => boolean): boolean;
 export function initials(name: string): string;
 export function avatarPath(value: unknown): string | null;
